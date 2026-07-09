@@ -13,11 +13,11 @@ Use `Ruined Heir's 1 tick` when you want quick, clean burst feedback. Its animat
 
 <img width="779" height="527" alt="Recording 2026-07-09 at 08 02 15" src="https://github.com/user-attachments/assets/98b2c87b-f391-4f26-800d-1f3ba9945df6" />
 
-Shape the layout around how you actually play. Tune shape, direction, behavior, radius, spacing, offsets, opacity, and fade timing.
+Shape the layout around how you actually play. Tune filters, priority rules, target categories, spacing, offsets, opacity, and fade timing.
 
 <img width="721" height="533" alt="Recording 2026-07-09 at 04 41 37" src="https://github.com/user-attachments/assets/a784a405-6b59-4039-a8f6-e375bf637eb8" />
 
-Keep it focused with source filters, prioritize your own hits when space is limited, or disable hitsplats by target category when you want a cleaner screen.
+Or lean into it with X mode: diagonal arms, chaotic energy, still easy to read at a glance.
 
 <img width="522" height="433" alt="Recording 2026-07-09 at 08 05 34" src="https://github.com/user-attachments/assets/69f141ca-f36a-4923-8c2d-48ba790347ad" />
 
