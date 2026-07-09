@@ -133,7 +133,7 @@ public interface HitsplatCustomizerConfig extends Config
 	@ConfigItem(
 		keyName = ONLY_DISPLAY_MINE_KEY,
 		name = "My hits only",
-		description = "Only show hitsplats caused by you. Other native hitsplats are still suppressed while this plugin is active.",
+		description = "Only show hitsplats marked as yours, plus special hitsplats not marked as someone else's.",
 		section = DISPLAY_SECTION,
 		position = 1
 	)
@@ -145,7 +145,7 @@ public interface HitsplatCustomizerConfig extends Config
 	@ConfigItem(
 		keyName = PRIORITIZE_MINE_KEY,
 		name = "Prioritize my hits",
-		description = "When visible splats are limited, a new hit from you replaces the oldest hit from someone else first, then your oldest hit if needed.",
+		description = "When visible splats are limited, a new hit treated as yours replaces the oldest other hit first, then your oldest hit if needed.",
 		section = DISPLAY_SECTION,
 		position = 2
 	)

@@ -128,7 +128,7 @@ public class HitsplatCustomizerPlugin extends Plugin
 			return;
 		}
 
-		boolean mine = hitsplat.isMine();
+		boolean mine = shouldTreatAsMine(hitsplat);
 		if (config.onlyDisplayMine() && !mine)
 		{
 			return;
@@ -493,6 +493,11 @@ public class HitsplatCustomizerPlugin extends Plugin
 		}
 
 		return false;
+	}
+
+	static boolean shouldTreatAsMine(Hitsplat hitsplat)
+	{
+		return hitsplat.isMine() || !hitsplat.isOthers();
 	}
 
 	private int evictForPrioritizedMine(Actor actor, CopyOnWriteArrayList<HitsplatCustomizerHitsplat> actorHitsplats, int maxHitsplats, int gameCycle)
