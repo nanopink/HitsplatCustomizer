@@ -151,7 +151,7 @@ public interface HitsplatCustomizerConfig extends Config
 	@ConfigItem(
 		keyName = FAKE_MINE_HITS_KEY,
 		name = "Use fake hits",
-		description = "Create synthetic hitsplats from your Hitpoints XP when the game does not send a real my-hit splat. Suppressed briefly when a real my-hit appears on the target.",
+		description = "Queue synthetic hits from Hitpoints XP only when no matching real splat arrives. Real splats preserve special sprites.",
 		section = DISPLAY_SECTION,
 		position = 2
 	)

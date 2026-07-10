@@ -76,6 +76,11 @@ final class HitsplatCustomizerHitsplat
 		return position;
 	}
 
+	int getAppearsOnGameCycle()
+	{
+		return appearsOnGameCycle;
+	}
+
 	long getSequence()
 	{
 		return sequence;
@@ -89,6 +94,21 @@ final class HitsplatCustomizerHitsplat
 	boolean isFake()
 	{
 		return fake;
+	}
+
+	HitsplatCustomizerHitsplat asMine(int mineHitsplatType)
+	{
+		return new HitsplatCustomizerHitsplat(
+			mineHitsplatType,
+			amount,
+			position,
+			appearsOnGameCycle,
+			fullOpacityStartsOnGameCycle,
+			fadeOutStartsOnGameCycle,
+			expiresOnGameCycle,
+			sequence,
+			true,
+			false);
 	}
 
 	boolean isExpired(int gameCycle)

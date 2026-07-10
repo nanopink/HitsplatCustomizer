@@ -1,7 +1,18 @@
 package com.hitsplatcustomizer;
 
 import static net.runelite.api.HitsplatID.DAMAGE_ME;
+import static net.runelite.api.HitsplatID.DAMAGE_ME_CYAN;
+import static net.runelite.api.HitsplatID.DAMAGE_ME_ORANGE;
+import static net.runelite.api.HitsplatID.DAMAGE_ME_POISE;
+import static net.runelite.api.HitsplatID.DAMAGE_ME_WHITE;
+import static net.runelite.api.HitsplatID.DAMAGE_ME_YELLOW;
+import static net.runelite.api.HitsplatID.DAMAGE_MAX_ME;
 import static net.runelite.api.HitsplatID.DAMAGE_OTHER;
+import static net.runelite.api.HitsplatID.DAMAGE_OTHER_CYAN;
+import static net.runelite.api.HitsplatID.DAMAGE_OTHER_ORANGE;
+import static net.runelite.api.HitsplatID.DAMAGE_OTHER_POISE;
+import static net.runelite.api.HitsplatID.DAMAGE_OTHER_WHITE;
+import static net.runelite.api.HitsplatID.DAMAGE_OTHER_YELLOW;
 import static net.runelite.api.HitsplatID.HEAL;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -38,6 +49,24 @@ public class HitsplatCustomizerMineFilterTest
 		assertEquals(21, HitsplatCustomizerPlugin.damageFromHitpointsExperience(28));
 		assertEquals(43, HitsplatCustomizerPlugin.damageFromHitpointsExperience(57));
 		assertEquals(-1, HitsplatCustomizerPlugin.damageFromHitpointsExperience(0));
+	}
+
+	@Test
+	public void convertsOtherDamageTypesToMineTypes()
+	{
+		assertEquals(DAMAGE_ME, HitsplatCustomizerPlugin.mineHitsplatTypeFor(DAMAGE_OTHER));
+		assertEquals(DAMAGE_ME_CYAN, HitsplatCustomizerPlugin.mineHitsplatTypeFor(DAMAGE_OTHER_CYAN));
+		assertEquals(DAMAGE_ME_ORANGE, HitsplatCustomizerPlugin.mineHitsplatTypeFor(DAMAGE_OTHER_ORANGE));
+		assertEquals(DAMAGE_ME_YELLOW, HitsplatCustomizerPlugin.mineHitsplatTypeFor(DAMAGE_OTHER_YELLOW));
+		assertEquals(DAMAGE_ME_WHITE, HitsplatCustomizerPlugin.mineHitsplatTypeFor(DAMAGE_OTHER_WHITE));
+		assertEquals(DAMAGE_ME_POISE, HitsplatCustomizerPlugin.mineHitsplatTypeFor(DAMAGE_OTHER_POISE));
+	}
+
+	@Test
+	public void preservesRealMineAndMaxDamageTypes()
+	{
+		assertEquals(DAMAGE_ME, HitsplatCustomizerPlugin.mineHitsplatTypeFor(DAMAGE_ME));
+		assertEquals(DAMAGE_MAX_ME, HitsplatCustomizerPlugin.mineHitsplatTypeFor(DAMAGE_MAX_ME));
 	}
 
 	@Test

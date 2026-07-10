@@ -2,6 +2,7 @@ package com.hitsplatcustomizer;
 
 import com.google.inject.Provides;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,6 +19,7 @@ import net.runelite.api.NPC;
 import net.runelite.api.Player;
 import net.runelite.api.Renderable;
 import net.runelite.api.Skill;
+import net.runelite.api.events.ClientTick;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.HitsplatApplied;
@@ -44,6 +46,8 @@ public class HitsplatCustomizerPlugin extends Plugin
 {
 	private static final int GAME_CYCLE_MILLIS = 20;
 	private static final int MIN_NATIVE_SUPPRESSION_CYCLES = 100;
+	private static final int FAKE_HIT_RENDER_DELAY_CYCLES = 2;
+	private static final int FAKE_HIT_MATCH_WINDOW_CYCLES = 8;
 	private static final int FAKE_HIT_REAL_SUPPRESSION_CYCLES = 45;
 	private static final String LEGACY_TRIANGULAR_LAYOUT_MODE = "TRIANGULAR";
 
@@ -77,6 +81,7 @@ public class HitsplatCustomizerPlugin extends Plugin
 	private final Map<Actor, Integer> nativeUiAllowedUntilGameCycle = new ConcurrentHashMap<>();
 
 	private final List<RecentMineHit> recentMineHits = new ArrayList<>();
+	private final List<PendingFakeHit> pendingFakeHits = new ArrayList<>();
 
 	private int lastHitpointsExperience = -1;
 	private long nextSequence;
@@ -114,6 +119,7 @@ public class HitsplatCustomizerPlugin extends Plugin
 		nativeUiSuppressedUntilGameCycle.clear();
 		nativeUiAllowedUntilGameCycle.clear();
 		recentMineHits.clear();
+		pendingFakeHits.clear();
 		lastHitpointsExperience = -1;
 		nextSequence = 0;
 	}
@@ -141,7 +147,12 @@ public class HitsplatCustomizerPlugin extends Plugin
 			return;
 		}
 
-		boolean mine = shouldTreatAsMine(hitsplat);
+		boolean realMine = shouldTreatAsMine(hitsplat);
+		boolean matchedFakeMineHit = hitsplat.getAmount() > 0
+			&& shouldUseFakeMineHits()
+			&& (consumeMatchingPendingFakeHit(actor, hitsplat.getAmount(), gameCycle)
+				|| consumeMatchingActiveFakeHit(actor, hitsplat.getAmount(), gameCycle));
+		boolean mine = realMine || matchedFakeMineHit;
 		if (mine)
 		{
 			recordRealMineHit(actor, hitsplat.getAmount(), gameCycle);
@@ -153,7 +164,8 @@ public class HitsplatCustomizerPlugin extends Plugin
 			return;
 		}
 
-		addTrackedHitsplat(actor, hitsplat, mine, gameCycle);
+		int hitsplatType = mine ? mineHitsplatTypeFor(hitsplat.getHitsplatType()) : hitsplat.getHitsplatType();
+		addTrackedHitsplat(actor, hitsplatType, hitsplat.getAmount(), mine, gameCycle, false);
 	}
 
 	private HitsplatCustomizerHitsplat addTrackedHitsplat(Actor actor, Hitsplat hitsplat, boolean mine, int gameCycle)
@@ -228,7 +240,7 @@ public class HitsplatCustomizerPlugin extends Plugin
 		{
 			if (HitsplatCustomizerConfig.FAKE_MINE_HITS_KEY.equals(event.getKey()) && !shouldUseFakeMineHits())
 			{
-				recentMineHits.clear();
+				clearFakeMineHits();
 			}
 
 			if (!applyingPreset && isPresetControlledSetting(event.getKey()) && config.preset() != HitsplatCustomizerPreset.CUSTOM)
@@ -256,6 +268,12 @@ public class HitsplatCustomizerPlugin extends Plugin
 		{
 			applyingPreset = false;
 		}
+	}
+
+	@Subscribe
+	public void onClientTick(ClientTick event)
+	{
+		flushPendingFakeHits(client.getGameCycle());
 	}
 
 	@Subscribe
@@ -302,6 +320,7 @@ public class HitsplatCustomizerPlugin extends Plugin
 			nativeUiSuppressedUntilGameCycle.clear();
 			nativeUiAllowedUntilGameCycle.clear();
 			recentMineHits.clear();
+			pendingFakeHits.clear();
 			lastHitpointsExperience = -1;
 			nextSequence = 0;
 		}
@@ -340,6 +359,7 @@ public class HitsplatCustomizerPlugin extends Plugin
 		nativeUiSuppressedUntilGameCycle.entrySet().removeIf(entry -> entry.getValue() < gameCycle);
 		nativeUiAllowedUntilGameCycle.entrySet().removeIf(entry -> entry.getValue() < gameCycle);
 		recentMineHits.removeIf(hit -> hit.isExpired(gameCycle));
+		pendingFakeHits.removeIf(hit -> hit.isExpired(gameCycle));
 	}
 
 	private void refreshHitpointsExperience()
@@ -383,13 +403,17 @@ public class HitsplatCustomizerPlugin extends Plugin
 			return;
 		}
 
-		addTrackedHitsplat(
+		if (useMatchingRealHitsplat(target, amount, gameCycle) || hasPendingFakeHit(target, amount, gameCycle))
+		{
+			return;
+		}
+
+		pendingFakeHits.add(new PendingFakeHit(
 			target,
-			HitsplatID.DAMAGE_ME,
 			amount,
-			true,
 			gameCycle,
-			true);
+			gameCycle + FAKE_HIT_RENDER_DELAY_CYCLES,
+			gameCycle + FAKE_HIT_MATCH_WINDOW_CYCLES));
 	}
 
 	private Actor fakeHitTarget()
@@ -435,6 +459,141 @@ public class HitsplatCustomizerPlugin extends Plugin
 	private void removeFakeStateForActor(Actor actor)
 	{
 		recentMineHits.removeIf(hit -> hit.getActor() == actor);
+		pendingFakeHits.removeIf(hit -> hit.getActor() == actor);
+	}
+
+	private void clearFakeMineHits()
+	{
+		recentMineHits.clear();
+		pendingFakeHits.clear();
+		hitsplats.values().forEach(actorHitsplats -> actorHitsplats.removeIf(HitsplatCustomizerHitsplat::isFake));
+	}
+
+	private void flushPendingFakeHits(int gameCycle)
+	{
+		Iterator<PendingFakeHit> it = pendingFakeHits.iterator();
+		while (it.hasNext())
+		{
+			PendingFakeHit pendingHit = it.next();
+			if (pendingHit.isExpired(gameCycle) || shouldDisableHitsplatsForActor(pendingHit.getActor()))
+			{
+				it.remove();
+				continue;
+			}
+
+			if (!pendingHit.isReady(gameCycle))
+			{
+				continue;
+			}
+
+			it.remove();
+			if (hasRecentMineHit(pendingHit.getActor(), gameCycle)
+				|| useMatchingRealHitsplat(pendingHit.getActor(), pendingHit.getAmount(), gameCycle))
+			{
+				continue;
+			}
+
+			addTrackedHitsplat(
+				pendingHit.getActor(),
+				HitsplatID.DAMAGE_ME,
+				pendingHit.getAmount(),
+				true,
+				gameCycle,
+				true);
+		}
+	}
+
+	private boolean hasPendingFakeHit(Actor actor, int amount, int gameCycle)
+	{
+		for (PendingFakeHit pendingHit : pendingFakeHits)
+		{
+			if (pendingHit.matches(actor, amount, gameCycle))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private boolean consumeMatchingPendingFakeHit(Actor actor, int amount, int gameCycle)
+	{
+		Iterator<PendingFakeHit> it = pendingFakeHits.iterator();
+		while (it.hasNext())
+		{
+			PendingFakeHit pendingHit = it.next();
+			if (pendingHit.isExpired(gameCycle))
+			{
+				it.remove();
+				continue;
+			}
+
+			if (pendingHit.matches(actor, amount, gameCycle))
+			{
+				it.remove();
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private boolean consumeMatchingActiveFakeHit(Actor actor, int amount, int gameCycle)
+	{
+		CopyOnWriteArrayList<HitsplatCustomizerHitsplat> actorHitsplats = hitsplats.get(actor);
+		if (actorHitsplats == null)
+		{
+			return false;
+		}
+
+		return actorHitsplats.removeIf(hitsplat -> hitsplat.isFake()
+			&& hitsplat.getAmount() == amount
+			&& !hitsplat.isExpired(gameCycle)
+			&& isWithinFakeMatchWindow(hitsplat.getAppearsOnGameCycle(), gameCycle));
+	}
+
+	private boolean useMatchingRealHitsplat(Actor actor, int amount, int gameCycle)
+	{
+		CopyOnWriteArrayList<HitsplatCustomizerHitsplat> actorHitsplats = hitsplats.get(actor);
+		if (actorHitsplats == null)
+		{
+			return false;
+		}
+
+		int matchingIndex = -1;
+		HitsplatCustomizerHitsplat matchingHitsplat = null;
+		for (int i = 0; i < actorHitsplats.size(); i++)
+		{
+			HitsplatCustomizerHitsplat hitsplat = actorHitsplats.get(i);
+			if (!hitsplat.isFake()
+				&& !hitsplat.isMine()
+				&& hitsplat.getAmount() == amount
+				&& !hitsplat.isExpired(gameCycle)
+				&& isWithinFakeMatchWindow(hitsplat.getAppearsOnGameCycle(), gameCycle))
+			{
+				if (matchingHitsplat != null)
+				{
+					return !config.onlyDisplayMine();
+				}
+
+				matchingIndex = i;
+				matchingHitsplat = hitsplat;
+			}
+		}
+
+		if (matchingHitsplat == null)
+		{
+			return false;
+		}
+
+		actorHitsplats.set(matchingIndex, matchingHitsplat.asMine(mineHitsplatTypeFor(matchingHitsplat.getHitsplatType())));
+		recordRealMineHit(actor, amount, gameCycle);
+		return true;
+	}
+
+	private static boolean isWithinFakeMatchWindow(int hitsplatGameCycle, int gameCycle)
+	{
+		return Math.abs(gameCycle - hitsplatGameCycle) <= FAKE_HIT_MATCH_WINDOW_CYCLES;
 	}
 
 	private void migrateLegacyConfig()
@@ -735,6 +894,27 @@ public class HitsplatCustomizerPlugin extends Plugin
 		return hitsplat.isMine();
 	}
 
+	static int mineHitsplatTypeFor(int hitsplatType)
+	{
+		switch (hitsplatType)
+		{
+			case HitsplatID.DAMAGE_OTHER:
+				return HitsplatID.DAMAGE_ME;
+			case HitsplatID.DAMAGE_OTHER_CYAN:
+				return HitsplatID.DAMAGE_ME_CYAN;
+			case HitsplatID.DAMAGE_OTHER_ORANGE:
+				return HitsplatID.DAMAGE_ME_ORANGE;
+			case HitsplatID.DAMAGE_OTHER_YELLOW:
+				return HitsplatID.DAMAGE_ME_YELLOW;
+			case HitsplatID.DAMAGE_OTHER_WHITE:
+				return HitsplatID.DAMAGE_ME_WHITE;
+			case HitsplatID.DAMAGE_OTHER_POISE:
+				return HitsplatID.DAMAGE_ME_POISE;
+			default:
+				return hitsplatType;
+		}
+	}
+
 	static int damageFromHitpointsExperience(int hitpointsExperienceGained)
 	{
 		if (hitpointsExperienceGained <= 0)
@@ -933,6 +1113,52 @@ public class HitsplatCustomizerPlugin extends Plugin
 		private boolean isExpired(int currentGameCycle)
 		{
 			return gameCycle + FAKE_HIT_REAL_SUPPRESSION_CYCLES < currentGameCycle;
+		}
+	}
+
+	private static final class PendingFakeHit
+	{
+		private final Actor actor;
+		private final int amount;
+		private final int createdOnGameCycle;
+		private final int renderOnGameCycle;
+		private final int expiresOnGameCycle;
+
+		private PendingFakeHit(Actor actor, int amount, int createdOnGameCycle, int renderOnGameCycle, int expiresOnGameCycle)
+		{
+			this.actor = actor;
+			this.amount = amount;
+			this.createdOnGameCycle = createdOnGameCycle;
+			this.renderOnGameCycle = renderOnGameCycle;
+			this.expiresOnGameCycle = expiresOnGameCycle;
+		}
+
+		private Actor getActor()
+		{
+			return actor;
+		}
+
+		private int getAmount()
+		{
+			return amount;
+		}
+
+		private boolean isReady(int gameCycle)
+		{
+			return gameCycle >= renderOnGameCycle;
+		}
+
+		private boolean isExpired(int gameCycle)
+		{
+			return gameCycle > expiresOnGameCycle;
+		}
+
+		private boolean matches(Actor actor, int amount, int gameCycle)
+		{
+			return this.actor == actor
+				&& this.amount == amount
+				&& gameCycle >= createdOnGameCycle
+				&& !isExpired(gameCycle);
 		}
 	}
 
