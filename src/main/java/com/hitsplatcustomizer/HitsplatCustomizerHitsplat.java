@@ -11,6 +11,7 @@ final class HitsplatCustomizerHitsplat
 	private final int expiresOnGameCycle;
 	private final long sequence;
 	private final boolean mine;
+	private final boolean fake;
 
 	HitsplatCustomizerHitsplat(
 		int hitsplatType,
@@ -23,6 +24,31 @@ final class HitsplatCustomizerHitsplat
 		long sequence,
 		boolean mine)
 	{
+		this(
+			hitsplatType,
+			amount,
+			position,
+			appearsOnGameCycle,
+			fullOpacityStartsOnGameCycle,
+			fadeOutStartsOnGameCycle,
+			expiresOnGameCycle,
+			sequence,
+			mine,
+			false);
+	}
+
+	HitsplatCustomizerHitsplat(
+		int hitsplatType,
+		int amount,
+		int position,
+		int appearsOnGameCycle,
+		int fullOpacityStartsOnGameCycle,
+		int fadeOutStartsOnGameCycle,
+		int expiresOnGameCycle,
+		long sequence,
+		boolean mine,
+		boolean fake)
+	{
 		this.hitsplatType = hitsplatType;
 		this.amount = amount;
 		this.position = position;
@@ -32,6 +58,7 @@ final class HitsplatCustomizerHitsplat
 		this.expiresOnGameCycle = expiresOnGameCycle;
 		this.sequence = sequence;
 		this.mine = mine;
+		this.fake = fake;
 	}
 
 	int getHitsplatType()
@@ -57,6 +84,11 @@ final class HitsplatCustomizerHitsplat
 	boolean isMine()
 	{
 		return mine;
+	}
+
+	boolean isFake()
+	{
+		return fake;
 	}
 
 	boolean isExpired(int gameCycle)
