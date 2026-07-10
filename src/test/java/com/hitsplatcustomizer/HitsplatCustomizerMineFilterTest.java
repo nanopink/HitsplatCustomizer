@@ -70,6 +70,15 @@ public class HitsplatCustomizerMineFilterTest
 	}
 
 	@Test
+	public void usesConfiguredMaxSpriteForSyntheticHits()
+	{
+		assertEquals(DAMAGE_ME, HitsplatCustomizerPlugin.fakeHitsplatTypeFor(20, 0));
+		assertEquals(DAMAGE_ME, HitsplatCustomizerPlugin.fakeHitsplatTypeFor(20, 21));
+		assertEquals(DAMAGE_MAX_ME, HitsplatCustomizerPlugin.fakeHitsplatTypeFor(21, 21));
+		assertEquals(DAMAGE_MAX_ME, HitsplatCustomizerPlugin.fakeHitsplatTypeFor(22, 21));
+	}
+
+	@Test
 	public void convertsLegacyOpacityToPercent()
 	{
 		assertEquals(100, HitsplatCustomizerPlugin.opacityPercent("1.0"));

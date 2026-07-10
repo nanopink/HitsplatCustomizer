@@ -238,7 +238,9 @@ public class HitsplatCustomizerPlugin extends Plugin
 
 		if (!HitsplatCustomizerConfig.PRESET_KEY.equals(event.getKey()))
 		{
-			if (HitsplatCustomizerConfig.FAKE_MINE_HITS_KEY.equals(event.getKey()) && !shouldUseFakeMineHits())
+			if ((HitsplatCustomizerConfig.FAKE_MINE_HITS_KEY.equals(event.getKey())
+				|| HitsplatCustomizerConfig.ONLY_DISPLAY_MINE_KEY.equals(event.getKey()))
+				&& !shouldUseFakeMineHits())
 			{
 				clearFakeMineHits();
 			}
@@ -424,7 +426,7 @@ public class HitsplatCustomizerPlugin extends Plugin
 
 	private boolean shouldUseFakeMineHits()
 	{
-		return config.fakeMineHits();
+		return config.onlyDisplayMine() && config.fakeMineHits();
 	}
 
 	private boolean hasRecentMineHit(Actor actor, int gameCycle)
@@ -495,7 +497,7 @@ public class HitsplatCustomizerPlugin extends Plugin
 
 			addTrackedHitsplat(
 				pendingHit.getActor(),
-				HitsplatID.DAMAGE_ME,
+				fakeHitsplatTypeFor(pendingHit.getAmount()),
 				pendingHit.getAmount(),
 				true,
 				gameCycle,
@@ -913,6 +915,18 @@ public class HitsplatCustomizerPlugin extends Plugin
 			default:
 				return hitsplatType;
 		}
+	}
+
+	private int fakeHitsplatTypeFor(int amount)
+	{
+		return fakeHitsplatTypeFor(amount, config.fakeMaxHitAmount());
+	}
+
+	static int fakeHitsplatTypeFor(int amount, int fakeMaxHitAmount)
+	{
+		return fakeMaxHitAmount > 0 && amount >= fakeMaxHitAmount
+			? HitsplatID.DAMAGE_MAX_ME
+			: HitsplatID.DAMAGE_ME;
 	}
 
 	static int damageFromHitpointsExperience(int hitpointsExperienceGained)

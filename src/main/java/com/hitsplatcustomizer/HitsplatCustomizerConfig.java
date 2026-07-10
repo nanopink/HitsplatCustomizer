@@ -25,6 +25,7 @@ public interface HitsplatCustomizerConfig extends Config
 	String OPACITY_PERCENT_KEY = "opacityPercent";
 	String ONLY_DISPLAY_MINE_KEY = "onlyDisplayMine";
 	String FAKE_MINE_HITS_KEY = "fakeMineHits";
+	String FAKE_MAX_HIT_AMOUNT_KEY = "fakeMaxHitAmount";
 	String PRIORITIZE_MINE_KEY = "prioritizeMine";
 	String HIDE_ZERO_HITSPLATS_KEY = "hideZeroHitsplats";
 	String LAYOUT_SHAPE_KEY = "layoutShape";
@@ -139,7 +140,7 @@ public interface HitsplatCustomizerConfig extends Config
 	@ConfigItem(
 		keyName = ONLY_DISPLAY_MINE_KEY,
 		name = "My hits only (read note)",
-		description = "Strictly uses the game's ownership flag. In very crowded fights, the game can send your NPC damage as other players' hits, so this can hide real damage unless Use fake hits is enabled.",
+		description = "Strictly uses the game's ownership flag. In very crowded fights, the game can send your NPC damage as other players' hits, so this can hide real damage unless fake hits are enabled.",
 		section = DISPLAY_SECTION,
 		position = 1
 	)
@@ -151,7 +152,7 @@ public interface HitsplatCustomizerConfig extends Config
 	@ConfigItem(
 		keyName = FAKE_MINE_HITS_KEY,
 		name = "Use fake hits",
-		description = "Queue synthetic hits from Hitpoints XP only when no matching real splat arrives. Real splats preserve special sprites.",
+		description = "Only applies with My hits only. Creates XP-estimated hits when the game does not send a real my-hit splat.",
 		section = DISPLAY_SECTION,
 		position = 2
 	)
@@ -161,11 +162,27 @@ public interface HitsplatCustomizerConfig extends Config
 	}
 
 	@ConfigItem(
+		keyName = FAKE_MAX_HIT_AMOUNT_KEY,
+		name = "Fake max hit amount",
+		description = "Synthetic hits use the max-hit sprite at this amount or higher. Set to 0 to use the regular damage sprite.",
+		section = DISPLAY_SECTION,
+		position = 3
+	)
+	@Range(
+		min = 0,
+		max = 250
+	)
+	default int fakeMaxHitAmount()
+	{
+		return 0;
+	}
+
+	@ConfigItem(
 		keyName = PRIORITIZE_MINE_KEY,
 		name = "Prioritize my hits",
 		description = "When visible splats are limited, a new hit treated as yours replaces the oldest other hit first, then your oldest hit if needed.",
 		section = DISPLAY_SECTION,
-		position = 3
+		position = 4
 	)
 	default boolean prioritizeMine()
 	{
@@ -177,7 +194,7 @@ public interface HitsplatCustomizerConfig extends Config
 		name = "Hide zero hitsplats",
 		description = "Hide misses and other hitsplats with an amount of 0.",
 		section = DISPLAY_SECTION,
-		position = 4
+		position = 5
 	)
 	default boolean hideZeroHitsplats()
 	{
