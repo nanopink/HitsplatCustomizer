@@ -10,7 +10,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import javax.inject.Inject;
 import lombok.Getter;
 import net.runelite.api.Actor;
-import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Hitsplat;
@@ -35,8 +34,6 @@ import net.runelite.client.events.ProfileChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @PluginDescriptor(
 	name = "Hitsplat Customizer",
@@ -45,7 +42,6 @@ import org.slf4j.LoggerFactory;
 )
 public class HitsplatCustomizerPlugin extends Plugin
 {
-	private static final Logger log = LoggerFactory.getLogger(HitsplatCustomizerPlugin.class);
 	private static final int GAME_CYCLE_MILLIS = 20;
 	private static final int MIN_NATIVE_SUPPRESSION_CYCLES = 100;
 	private static final int FAKE_HIT_REAL_SUPPRESSION_CYCLES = 45;
@@ -136,14 +132,12 @@ public class HitsplatCustomizerPlugin extends Plugin
 		if (shouldDisableHitsplatsForActor(actor))
 		{
 			suppressNativeActorUi(actor, gameCycle);
-			debugHitFilter(actor, hitsplat, false, false, "drop disabled", gameCycle);
 			return;
 		}
 
 		if (config.hideZeroHitsplats() && hitsplat.getAmount() == 0)
 		{
 			suppressNativeActorUi(actor, gameCycle);
-			debugHitFilter(actor, hitsplat, false, false, "drop zero", gameCycle);
 			return;
 		}
 
@@ -156,24 +150,20 @@ public class HitsplatCustomizerPlugin extends Plugin
 		if (config.onlyDisplayMine() && !mine)
 		{
 			suppressNativeActorUi(actor, gameCycle);
-			debugHitFilter(actor, hitsplat, false, false, "drop mine-filter", gameCycle);
 			return;
 		}
 
-		addTrackedHitsplat(actor, hitsplat, mine, gameCycle, "keep");
+		addTrackedHitsplat(actor, hitsplat, mine, gameCycle);
 	}
 
-	private HitsplatCustomizerHitsplat addTrackedHitsplat(Actor actor, Hitsplat hitsplat, boolean mine, int gameCycle, String keepDecision)
+	private HitsplatCustomizerHitsplat addTrackedHitsplat(Actor actor, Hitsplat hitsplat, boolean mine, int gameCycle)
 	{
 		return addTrackedHitsplat(
 			actor,
 			hitsplat.getHitsplatType(),
 			hitsplat.getAmount(),
-			hitsplat.isMine(),
-			hitsplat.isOthers(),
 			mine,
 			gameCycle,
-			keepDecision,
 			false);
 	}
 
@@ -181,11 +171,8 @@ public class HitsplatCustomizerPlugin extends Plugin
 		Actor actor,
 		int hitsplatType,
 		int amount,
-		boolean sourceMine,
-		boolean sourceOther,
 		boolean mine,
 		int gameCycle,
-		String keepDecision,
 		boolean fake)
 	{
 		CopyOnWriteArrayList<HitsplatCustomizerHitsplat> actorHitsplats = hitsplats.computeIfAbsent(actor, ignored -> new CopyOnWriteArrayList<>());
@@ -202,11 +189,6 @@ public class HitsplatCustomizerPlugin extends Plugin
 			if (mine)
 			{
 				allowNativeActorUi(actor, gameCycle);
-				debugHitFilter(actor, amount, hitsplatType, sourceMine, sourceOther, mine, mine, "drop no-slot native-fallback", gameCycle, fake);
-			}
-			else
-			{
-				debugHitFilter(actor, amount, hitsplatType, sourceMine, sourceOther, mine, mine, "drop no-slot", gameCycle, fake);
 			}
 			return null;
 		}
@@ -215,7 +197,6 @@ public class HitsplatCustomizerPlugin extends Plugin
 			nativeUiAllowedUntilGameCycle.remove(actor);
 		}
 		suppressNativeActorUi(actor, gameCycle);
-		debugHitFilter(actor, amount, hitsplatType, sourceMine, sourceOther, mine, mine, keepDecision, gameCycle, fake);
 
 		int fadeInCycles = fadeInCycles();
 		int fullOpacityCycles = fullOpacityCycles();
@@ -381,7 +362,7 @@ public class HitsplatCustomizerPlugin extends Plugin
 		}
 
 		recentMineHits.add(new RecentMineHit(actor, gameCycle));
-		removeActiveFakeHits(actor, amount, gameCycle);
+		removeActiveFakeHits(actor, gameCycle);
 	}
 
 	private void queueFakeMineHit(int amount, int gameCycle)
@@ -389,19 +370,16 @@ public class HitsplatCustomizerPlugin extends Plugin
 		Actor target = fakeHitTarget();
 		if (target == null)
 		{
-			debugFakeHitFilterWithoutActor(amount, "drop fake-hit no-target", gameCycle);
 			return;
 		}
 
 		if (shouldDisableHitsplatsForActor(target))
 		{
-			debugFakeHitFilter(target, amount, "drop fake-hit disabled", gameCycle);
 			return;
 		}
 
 		if (hasRecentMineHit(target, gameCycle))
 		{
-			debugFakeHitFilter(target, amount, "drop fake-hit real-recent", gameCycle);
 			return;
 		}
 
@@ -409,11 +387,8 @@ public class HitsplatCustomizerPlugin extends Plugin
 			target,
 			HitsplatID.DAMAGE_ME,
 			amount,
-			false,
-			false,
 			true,
 			gameCycle,
-			"keep fake-hit",
 			true);
 	}
 
@@ -446,7 +421,7 @@ public class HitsplatCustomizerPlugin extends Plugin
 		return false;
 	}
 
-	private void removeActiveFakeHits(Actor actor, int amount, int gameCycle)
+	private void removeActiveFakeHits(Actor actor, int gameCycle)
 	{
 		CopyOnWriteArrayList<HitsplatCustomizerHitsplat> actorHitsplats = hitsplats.get(actor);
 		if (actorHitsplats == null)
@@ -454,11 +429,7 @@ public class HitsplatCustomizerPlugin extends Plugin
 			return;
 		}
 
-		boolean removed = actorHitsplats.removeIf(hitsplat -> hitsplat.isFake() && !hitsplat.isExpired(gameCycle));
-		if (removed)
-		{
-			debugFakeHitFilter(actor, amount, "drop fake-hit real-arrived", gameCycle);
-		}
+		actorHitsplats.removeIf(hitsplat -> hitsplat.isFake() && !hitsplat.isExpired(gameCycle));
 	}
 
 	private void removeFakeStateForActor(Actor actor)
@@ -784,125 +755,6 @@ public class HitsplatCustomizerPlugin extends Plugin
 
 		double expectedHitpointsExperience = amount * 4.0 / 3.0;
 		return Math.abs(hitpointsExperienceGained - expectedHitpointsExperience) <= 1.0;
-	}
-
-	private void debugHitFilter(
-		Actor actor,
-		Hitsplat hitsplat,
-		boolean treatedAsMine,
-		boolean prioritizedAsMine,
-		String decision,
-		int gameCycle)
-	{
-		debugHitFilter(
-			actor,
-			hitsplat.getAmount(),
-			hitsplat.getHitsplatType(),
-			hitsplat.isMine(),
-			hitsplat.isOthers(),
-			treatedAsMine,
-			prioritizedAsMine,
-			decision,
-			gameCycle,
-			false);
-	}
-
-	private void debugFakeHitFilter(Actor actor, int amount, String decision, int gameCycle)
-	{
-		debugHitFilter(
-			actor,
-			amount,
-			HitsplatID.DAMAGE_ME,
-			false,
-			false,
-			true,
-			true,
-			decision,
-			gameCycle,
-			true);
-	}
-
-	private void debugFakeHitFilterWithoutActor(int amount, String decision, int gameCycle)
-	{
-		if (!config.debugHitFilter())
-		{
-			return;
-		}
-
-		String message = "HSC " + decision
-			+ ": amt=" + amount
-			+ " type=" + HitsplatID.DAMAGE_ME
-			+ " isMine=false"
-			+ " isOther=false"
-			+ " treatedMine=true"
-			+ " priorityMine=true"
-			+ " fake=true"
-			+ " localActor=false"
-			+ " localTarget=false"
-			+ " nativeFallback=false"
-			+ " actor=null"
-			+ " cycle=" + gameCycle;
-		log.debug(message);
-		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", message, null);
-	}
-
-	private void debugHitFilter(
-		Actor actor,
-		int amount,
-		int hitsplatType,
-		boolean sourceMine,
-		boolean sourceOther,
-		boolean treatedAsMine,
-		boolean prioritizedAsMine,
-		String decision,
-		int gameCycle,
-		boolean fake)
-	{
-		if (!config.debugHitFilter())
-		{
-			return;
-		}
-
-		Player localPlayer = client.getLocalPlayer();
-		Actor localTarget = localPlayer == null ? null : localPlayer.getInteracting();
-		String message = "HSC " + decision
-			+ ": amt=" + amount
-			+ " type=" + hitsplatType
-			+ " isMine=" + sourceMine
-			+ " isOther=" + sourceOther
-			+ " treatedMine=" + treatedAsMine
-			+ " priorityMine=" + prioritizedAsMine
-			+ " fake=" + fake
-			+ " localActor=" + (actor == localPlayer)
-			+ " localTarget=" + (actor == localTarget)
-			+ " nativeFallback=" + isNativeUiAllowed(actor, gameCycle)
-			+ " actor=" + describeActor(actor)
-			+ " cycle=" + gameCycle;
-		log.debug(message);
-		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", message, null);
-	}
-
-	private static String describeActor(Actor actor)
-	{
-		String name = actor.getName();
-		if (name == null || name.isEmpty())
-		{
-			name = "?";
-		}
-
-		if (actor instanceof NPC)
-		{
-			NPC npc = (NPC) actor;
-			return "npc:" + npc.getId() + ":" + npc.getIndex() + ":" + name;
-		}
-
-		if (actor instanceof Player)
-		{
-			Player player = (Player) actor;
-			return "player:" + player.getId() + ":" + player.getName();
-		}
-
-		return actor.getClass().getSimpleName() + ":" + name;
 	}
 
 	private int evictForPrioritizedMine(Actor actor, CopyOnWriteArrayList<HitsplatCustomizerHitsplat> actorHitsplats, int maxHitsplats, int gameCycle)

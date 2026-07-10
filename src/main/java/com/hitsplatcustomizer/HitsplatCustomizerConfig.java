@@ -23,7 +23,6 @@ public interface HitsplatCustomizerConfig extends Config
 	String MAX_HITSPLATS_KEY = "maxHitsplats";
 	String LEGACY_OPACITY_KEY = "opacity";
 	String OPACITY_PERCENT_KEY = "opacityPercent";
-	String DEBUG_HIT_FILTER_KEY = "debugHitFilter";
 	String ONLY_DISPLAY_MINE_KEY = "onlyDisplayMine";
 	String FAKE_MINE_HITS_KEY = "fakeMineHits";
 	String PRIORITIZE_MINE_KEY = "prioritizeMine";
@@ -135,18 +134,6 @@ public interface HitsplatCustomizerConfig extends Config
 	default int opacityPercent()
 	{
 		return 100;
-	}
-
-	@ConfigItem(
-		keyName = DEBUG_HIT_FILTER_KEY,
-		name = "Debug hit filter",
-		description = "Print hitmark ownership diagnostics to chat and the client log.",
-		section = GENERAL_SECTION,
-		position = 6
-	)
-	default boolean debugHitFilter()
-	{
-		return false;
 	}
 
 	@ConfigItem(
