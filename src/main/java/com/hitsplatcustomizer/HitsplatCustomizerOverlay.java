@@ -111,7 +111,7 @@ public class HitsplatCustomizerOverlay extends Overlay
 
 	private boolean renderActorHitsplats(Graphics2D graphics, Actor actor, List<HitsplatCustomizerHitsplat> hitsplats, int gameCycle)
 	{
-		if (plugin.shouldDisableHitsplatsForActor(actor))
+		if (plugin.shouldDisableHitsplatsForActor(actor) || plugin.isNativeUiAllowed(actor, gameCycle))
 		{
 			return false;
 		}
@@ -142,7 +142,9 @@ public class HitsplatCustomizerOverlay extends Overlay
 			return true;
 		}
 
-		visibleHitsplats.sort(Comparator.comparingLong(HitsplatCustomizerHitsplat::getSequence));
+		visibleHitsplats.sort(Comparator
+			.comparing(HitsplatCustomizerHitsplat::isMine)
+			.thenComparingLong(HitsplatCustomizerHitsplat::getSequence));
 		int maxHitsplats = config.maxHitsplats();
 		for (HitsplatCustomizerHitsplat hitsplat : visibleHitsplats)
 		{
@@ -374,13 +376,7 @@ public class HitsplatCustomizerOverlay extends Overlay
 
 	private float opacityMultiplier()
 	{
-		double opacity = config.opacity();
-		if (Double.isNaN(opacity) || Double.isInfinite(opacity))
-		{
-			return 1.0f;
-		}
-
-		return (float) Math.max(0.0, Math.min(1.0, opacity));
+		return Math.max(0, Math.min(100, config.opacityPercent())) / 100.0f;
 	}
 
 	private int xOffsetFor(Actor actor)

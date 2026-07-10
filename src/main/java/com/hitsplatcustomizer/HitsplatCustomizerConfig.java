@@ -21,8 +21,11 @@ public interface HitsplatCustomizerConfig extends Config
 	String DISABLE_ALLY_HITSPLATS_KEY = "disableAllyHitsplats";
 	String DISABLE_MY_HITSPLATS_KEY = "disableMyHitsplats";
 	String MAX_HITSPLATS_KEY = "maxHitsplats";
-	String OPACITY_KEY = "opacity";
+	String LEGACY_OPACITY_KEY = "opacity";
+	String OPACITY_PERCENT_KEY = "opacityPercent";
+	String DEBUG_HIT_FILTER_KEY = "debugHitFilter";
 	String ONLY_DISPLAY_MINE_KEY = "onlyDisplayMine";
+	String FAKE_MINE_HITS_KEY = "fakeMineHits";
 	String PRIORITIZE_MINE_KEY = "prioritizeMine";
 	String HIDE_ZERO_HITSPLATS_KEY = "hideZeroHitsplats";
 	String LAYOUT_SHAPE_KEY = "layoutShape";
@@ -119,21 +122,37 @@ public interface HitsplatCustomizerConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = OPACITY_KEY,
+		keyName = OPACITY_PERCENT_KEY,
 		name = "Opacity",
-		description = "Overall hitsplat opacity. 1.0 is fully opaque.",
+		description = "Overall hitsplat opacity percentage. 100 is fully opaque.",
 		section = GENERAL_SECTION,
 		position = 5
 	)
-	default double opacity()
+	@Range(
+		min = 0,
+		max = 100
+	)
+	default int opacityPercent()
 	{
-		return 1.0;
+		return 100;
+	}
+
+	@ConfigItem(
+		keyName = DEBUG_HIT_FILTER_KEY,
+		name = "Debug hit filter",
+		description = "Print hitmark ownership diagnostics to chat and the client log.",
+		section = GENERAL_SECTION,
+		position = 6
+	)
+	default boolean debugHitFilter()
+	{
+		return false;
 	}
 
 	@ConfigItem(
 		keyName = ONLY_DISPLAY_MINE_KEY,
-		name = "My hits only",
-		description = "Only show hitsplats marked as yours, plus special hitsplats not marked as someone else's.",
+		name = "My hits only (read note)",
+		description = "Strictly uses the game's ownership flag. In very crowded fights, the game can send your NPC damage as other players' hits, so this can hide real damage unless Use fake hits is enabled.",
 		section = DISPLAY_SECTION,
 		position = 1
 	)
@@ -143,11 +162,23 @@ public interface HitsplatCustomizerConfig extends Config
 	}
 
 	@ConfigItem(
+		keyName = FAKE_MINE_HITS_KEY,
+		name = "Use fake hits",
+		description = "Create synthetic hitsplats from your Hitpoints XP when the game does not send a real my-hit splat. Suppressed briefly when a real my-hit appears on the target.",
+		section = DISPLAY_SECTION,
+		position = 2
+	)
+	default boolean fakeMineHits()
+	{
+		return true;
+	}
+
+	@ConfigItem(
 		keyName = PRIORITIZE_MINE_KEY,
 		name = "Prioritize my hits",
 		description = "When visible splats are limited, a new hit treated as yours replaces the oldest other hit first, then your oldest hit if needed.",
 		section = DISPLAY_SECTION,
-		position = 2
+		position = 3
 	)
 	default boolean prioritizeMine()
 	{
@@ -159,7 +190,7 @@ public interface HitsplatCustomizerConfig extends Config
 		name = "Hide zero hitsplats",
 		description = "Hide misses and other hitsplats with an amount of 0.",
 		section = DISPLAY_SECTION,
-		position = 3
+		position = 4
 	)
 	default boolean hideZeroHitsplats()
 	{
@@ -171,7 +202,7 @@ public interface HitsplatCustomizerConfig extends Config
 		name = "Shape",
 		description = "Hexagonal uses six-sided rings. Diamond uses four-corner rings. Grid uses square rings. X uses diagonal arms.",
 		section = DISPLAY_SECTION,
-		position = 4
+		position = 5
 	)
 	default HitsplatCustomizerLayoutShape layoutShape()
 	{
@@ -183,7 +214,7 @@ public interface HitsplatCustomizerConfig extends Config
 		name = "Direction",
 		description = "Clockwise starts at top and moves right. Counterclockwise starts at top and moves left.",
 		section = DISPLAY_SECTION,
-		position = 5
+		position = 6
 	)
 	default HitsplatCustomizerLayoutDirection layoutDirection()
 	{
@@ -195,7 +226,7 @@ public interface HitsplatCustomizerConfig extends Config
 		name = "Behavior",
 		description = "Incremental fills slots in order. Symmetrical alternates opposite slots. Random chooses an open slot from the current radius.",
 		section = DISPLAY_SECTION,
-		position = 6
+		position = 7
 	)
 	default HitsplatCustomizerLayoutBehavior layoutBehavior()
 	{
@@ -207,7 +238,7 @@ public interface HitsplatCustomizerConfig extends Config
 		name = "Min radius",
 		description = "First layout radius to use. 0 starts at the center; 1 skips the center and starts on the first ring.",
 		section = DISPLAY_SECTION,
-		position = 7
+		position = 8
 	)
 	@Range(
 		min = 0,
@@ -223,7 +254,7 @@ public interface HitsplatCustomizerConfig extends Config
 		name = "Max radius",
 		description = "Maximum number of layers from the center. 0 means no cap; 1 means center only; 2 means center plus the first ring.",
 		section = DISPLAY_SECTION,
-		position = 8
+		position = 9
 	)
 	@Range(
 		min = 0,
@@ -239,7 +270,7 @@ public interface HitsplatCustomizerConfig extends Config
 		name = "X spacing",
 		description = "Extra horizontal pixels between adjacent hitsplat slots. Negative values pull slots closer together.",
 		section = DISPLAY_SECTION,
-		position = 9
+		position = 10
 	)
 	@Range(
 		min = -64,
@@ -255,7 +286,7 @@ public interface HitsplatCustomizerConfig extends Config
 		name = "Y spacing",
 		description = "Extra vertical pixels between adjacent hitsplat slots. Negative values pull slots closer together.",
 		section = DISPLAY_SECTION,
-		position = 10
+		position = 11
 	)
 	@Range(
 		min = -64,
@@ -271,7 +302,7 @@ public interface HitsplatCustomizerConfig extends Config
 		name = "Global X offset",
 		description = "Horizontal pixel offset applied to every hitsplat.",
 		section = DISPLAY_SECTION,
-		position = 11
+		position = 12
 	)
 	@Range(
 		min = -256,
@@ -287,7 +318,7 @@ public interface HitsplatCustomizerConfig extends Config
 		name = "Global Y offset",
 		description = "Vertical pixel offset applied to every hitsplat. Positive values move hitsplats upward.",
 		section = DISPLAY_SECTION,
-		position = 12
+		position = 13
 	)
 	@Range(
 		min = -256,
@@ -303,7 +334,7 @@ public interface HitsplatCustomizerConfig extends Config
 		name = "Large target size",
 		description = "Actor footprint size required for large-target offsets. 2 means targets at least 2x2 tiles.",
 		section = DISPLAY_SECTION,
-		position = 13
+		position = 14
 	)
 	@Range(
 		min = 1,
@@ -319,7 +350,7 @@ public interface HitsplatCustomizerConfig extends Config
 		name = "Large target X offset",
 		description = "Extra horizontal offset for actors at or above the large target size.",
 		section = DISPLAY_SECTION,
-		position = 14
+		position = 15
 	)
 	@Range(
 		min = -256,
@@ -335,7 +366,7 @@ public interface HitsplatCustomizerConfig extends Config
 		name = "Large target Y offset",
 		description = "Extra vertical offset for actors at or above the large target size. Positive values move hitsplats upward.",
 		section = DISPLAY_SECTION,
-		position = 15
+		position = 16
 	)
 	@Range(
 		min = -256,
@@ -351,7 +382,7 @@ public interface HitsplatCustomizerConfig extends Config
 		name = "Fade-in duration",
 		description = "How long hitsplats take to appear. Total lifetime is fade-in + full opacity + fade-out; 560 ms is the conservative 1-tick target.",
 		section = DISPLAY_SECTION,
-		position = 16
+		position = 17
 	)
 	@Units(Units.MILLISECONDS)
 	@Range(
@@ -368,7 +399,7 @@ public interface HitsplatCustomizerConfig extends Config
 		name = "Full opacity duration",
 		description = "How long hitsplats stay fully visible after fading in. A 1120 ms total lifetime targets 2 ticks with the same conservative estimate.",
 		section = DISPLAY_SECTION,
-		position = 17
+		position = 18
 	)
 	@Units(Units.MILLISECONDS)
 	@Range(
@@ -385,7 +416,7 @@ public interface HitsplatCustomizerConfig extends Config
 		name = "Fade-out duration",
 		description = "How long hitsplats take to disappear after the full opacity duration.",
 		section = DISPLAY_SECTION,
-		position = 18
+		position = 19
 	)
 	@Units(Units.MILLISECONDS)
 	@Range(
