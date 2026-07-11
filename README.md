@@ -8,7 +8,9 @@ Keep the familiar RuneScape look, pick a ready-made preset, or tune each section
 
 ## Make hitsplats yours
 
-Want faster, cleaner damage feedback? `Ruined Heir's 1 tick` keeps each hit on screen for less than a game tick, helping new damage stand out without old splats piling up.
+Want faster, cleaner damage feedback?
+
+`Ruined Heir's 1 tick` keeps each hit on screen for less than a game tick, helping new damage stand out without old splats piling up.
 
 <img width="779" height="527" alt="Ruined Heir's one-tick hitsplat preset" src="https://github.com/user-attachments/assets/98b2c87b-f391-4f26-800d-1f3ba9945df6" />
 
@@ -22,27 +24,27 @@ Then shape the layout around the fight. Use a familiar pattern or try hexagon, d
 
 <img width="435" height="423" alt="Grid hitsplat layout" src="https://github.com/user-attachments/assets/b037ebd3-a0a6-40e8-8c89-a981669c8ebf" />
 
-## More than hitsplats
+## Health bar how you decide
 
-- **Health bars:** Change the size, colors, gradients, direction, rounded corners, HP segments, and animated damage trail.
+Change the size, colors, gradients, direction, rounded corners, HP segments, and animated damage trail.
 
-- **Overhead chat:** Style player and NPC chat with fonts, colors, shadows, positioning, and classic effects such as wave, shake, scroll, glow, and rainbow.
+<img width="550" height="417" alt="Recording 2026-07-11 at 07 12 06" src="https://github.com/user-attachments/assets/b6521b09-aa4a-4b91-95f2-2b53dbe0e4b7" />
 
-- **Head icons:** Resize and reposition prayers, skulls, NPC overhead icons, and target hints, with control over the spacing between them.
+# Overhead chat
 
-- **Sprite scaling:** Choose Nearest, Bilinear, Bicubic, or xBR scaling for resized game sprites.
+Style player and NPC chat with fonts, colors, shadows, positioning, and classic effects such as wave, shake, scroll, glow, and rainbow.
 
-<!-- Add health-bar, overhead-chat, and head-icon GIFs beside these features when available. -->
+<img width="542" height="339" alt="Recording 2026-07-11 at 07 14 33 (1)" src="https://github.com/user-attachments/assets/9fa8a004-815e-4da9-ae26-3dd4a50bd2c6" />
 
-## Presets without lock-in
+# Head icons
 
-Every section starts with a `RuneScape` preset. Selecting another preset updates that section for you; changing one of its settings automatically switches it to `Custom`.
+Resize and reposition prayers, skulls, NPC overhead icons, and target hints, with control over the spacing between them.
+For the quality, you can choose Nearest, Bilinear, Bicubic, or xBR (recommended) scaling for resized game sprites.
+<img width="374" height="372" alt="image" src="https://github.com/user-attachments/assets/89f41192-a5da-4a20-b3f8-490eed067f4b" />
 
-Mix presets between sections, keep only the features you want, or build a complete style of your own.
+# Compatibility notes
 
-<details>
-<summary>Compatibility notes</summary>
+The plugin replaces these overhead elements while it is enabled.
+Some special encounter health bars and remote-player chat effects may look slightly different because RuneLite does not expose all of their original display information.
 
-The plugin replaces these overhead elements while it is enabled. Some special encounter health bars and remote-player chat effects may look slightly different because RuneLite does not expose all of their original display information.
-
-</details>
+Feel free to open bug issues, and we'll get them fixed!
