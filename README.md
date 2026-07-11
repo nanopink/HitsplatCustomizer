@@ -24,27 +24,37 @@ Then shape the layout around the fight. Use a familiar pattern or try hexagon, d
 
 <img width="435" height="423" alt="Grid hitsplat layout" src="https://github.com/user-attachments/assets/b037ebd3-a0a6-40e8-8c89-a981669c8ebf" />
 
-## Health bar how you decide
+## Health bars, your way
 
 Change the size, colors, gradients, direction, rounded corners, HP segments, and animated damage trail.
 
-<img width="550" height="417" alt="Recording 2026-07-11 at 07 12 06" src="https://github.com/user-attachments/assets/b6521b09-aa4a-4b91-95f2-2b53dbe0e4b7" />
+<img width="550" height="417" alt="Custom segmented health bars with an animated red damage trail" src="https://github.com/user-attachments/assets/b6521b09-aa4a-4b91-95f2-2b53dbe0e4b7" />
 
-# Overhead chat
+## Overhead chat
 
-Style player and NPC chat with fonts, colors, shadows, positioning, and classic effects such as wave, shake, scroll, glow, and rainbow.
+Style player and NPC chat with fonts, colors, shadows, positioning, and animated effects such as wave, shake, scroll, and slide. Your own messages also support classic color prefixes, including glow and rainbow.
 
-<img width="542" height="339" alt="Recording 2026-07-11 at 07 14 33 (1)" src="https://github.com/user-attachments/assets/9fa8a004-815e-4da9-ae26-3dd4a50bd2c6" />
+<img width="542" height="339" alt="Overhead chat using a custom font and wave effect" src="https://github.com/user-attachments/assets/9fa8a004-815e-4da9-ae26-3dd4a50bd2c6" />
 
-# Head icons
+## Head icons
 
 Resize and reposition prayers, skulls, NPC overhead icons, and target hints, with control over the spacing between them.
-For the quality, you can choose Nearest, Bilinear, Bicubic, or xBR (recommended) scaling for resized game sprites.
-<img width="374" height="372" alt="image" src="https://github.com/user-attachments/assets/89f41192-a5da-4a20-b3f8-490eed067f4b" />
 
-# Compatibility notes
+<img width="374" height="372" alt="Enlarged Protect from Melee prayer icon above a player" src="https://github.com/user-attachments/assets/89f41192-a5da-4a20-b3f8-490eed067f4b" />
 
-The plugin replaces these overhead elements while it is enabled.
-Some special encounter health bars and remote-player chat effects may look slightly different because RuneLite does not expose all of their original display information.
+## Sprite scaling
 
-Feel free to open bug issues, and we'll get them fixed!
+Resize hitsplats, RuneScape health bars, and head icons with Nearest, Bilinear, Bicubic, or xBR scaling. xBR is recommended for enlarged sprites.
+
+## Start with a preset
+
+Hitsplats, health bars, overhead chat, and head icons each start with a `RuneScape` preset. Choose another preset to apply its look. Adjusting one of its settings switches that section to `Custom` automatically, so you can mix styles freely.
+
+<details>
+<summary>Compatibility notes</summary>
+
+While enabled, the plugin replaces RuneScape's original hitsplats, health bars, overhead chat, and head icons. Some special encounter health bars may look different from the original. RuneLite does not expose other players' chat prefixes, so their messages use your configured default appearance.
+
+</details>
+
+Found a bug? [Open an issue](https://github.com/nanopink/CustomizeALot/issues) and we'll take a look.
