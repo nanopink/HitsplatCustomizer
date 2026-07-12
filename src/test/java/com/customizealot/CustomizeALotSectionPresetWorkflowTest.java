@@ -8,7 +8,6 @@ import static org.junit.Assert.assertTrue;
 import java.awt.Color;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import javax.swing.JComboBox;
 import net.runelite.client.config.FontType;
 import org.junit.Test;
 
@@ -261,17 +260,6 @@ public class CustomizeALotSectionPresetWorkflowTest
 			CustomizeALotPlugin.overheadChatPresetFromValue("Ruined Heir"));
 		assertSame(CustomizeALotHeadIconPreset.CUSTOM,
 			CustomizeALotPlugin.headIconPresetFromValue("CUSTOM"));
-	}
-
-	@Test
-	public void configRefreshDetectionRecognizesEverySectionPresetSelector()
-	{
-		assertTrue(CustomizeALotPlugin.containsPresetSelector(
-			new JComboBox<>(CustomizeALotHealthBarPreset.values())));
-		assertTrue(CustomizeALotPlugin.containsPresetSelector(
-			new JComboBox<>(CustomizeALotOverheadChatPreset.values())));
-		assertTrue(CustomizeALotPlugin.containsPresetSelector(
-			new JComboBox<>(CustomizeALotHeadIconPreset.values())));
 	}
 
 	@Test

@@ -7,27 +7,11 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import javax.swing.JComboBox;
-import javax.swing.JPanel;
 import net.runelite.client.config.FontType;
 import org.junit.Test;
 
 public class CustomizeALotPresetWorkflowTest
 {
-	@Test
-	public void configRefreshDetectionFindsOnlyTheHitsplatPresetSelector()
-	{
-		JPanel nested = new JPanel();
-		nested.add(new JComboBox<>(CustomizeALotPreset.values()));
-		JPanel root = new JPanel();
-		root.add(nested);
-
-		assertTrue(CustomizeALotPlugin.containsPresetSelector(root));
-		assertFalse(CustomizeALotPlugin.containsPresetSelector(
-			new JComboBox<>(CustomizeALotLayoutShape.values())));
-		assertFalse(CustomizeALotPlugin.containsPresetSelector(null));
-	}
-
 	@Test
 	public void selectingNamedPresetCopiesEveryControlledDisplayValue()
 	{

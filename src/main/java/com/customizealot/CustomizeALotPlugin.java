@@ -1,11 +1,8 @@
 package com.customizealot;
 
 import com.google.inject.Provides;
-import java.awt.Component;
-import java.awt.Container;
-import java.awt.KeyboardFocusManager;
-import java.awt.Window;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +14,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import javax.inject.Inject;
-import javax.swing.JComboBox;
 import javax.swing.SwingUtilities;
 import net.runelite.api.Actor;
 import net.runelite.api.Client;
@@ -35,7 +31,6 @@ import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.config.ConfigProfile;
 import net.runelite.client.config.FontType;
-import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ChatboxInput;
 import net.runelite.client.events.ConfigChanged;
@@ -63,9 +58,6 @@ public class CustomizeALotPlugin extends Plugin
 
 	@Inject
 	private ConfigManager configManager;
-
-	@Inject
-	private EventBus eventBus;
 
 	@Inject
 	private Client client;
@@ -280,7 +272,6 @@ public class CustomizeALotPlugin extends Plugin
 			{
 				applyPreset(preset);
 				scheduleHitsplatCleanup();
-				refreshConfigPanel();
 			}
 			return;
 		}
@@ -291,7 +282,6 @@ public class CustomizeALotPlugin extends Plugin
 			if (preset != null && preset != CustomizeALotHealthBarPreset.CUSTOM)
 			{
 				applyHealthBarPreset(preset);
-				refreshConfigPanel();
 			}
 			return;
 		}
@@ -302,7 +292,6 @@ public class CustomizeALotPlugin extends Plugin
 			if (preset != null && preset != CustomizeALotOverheadChatPreset.CUSTOM)
 			{
 				applyOverheadChatPreset(preset);
-				refreshConfigPanel();
 			}
 			return;
 		}
@@ -313,7 +302,6 @@ public class CustomizeALotPlugin extends Plugin
 			if (preset != null && preset != CustomizeALotHeadIconPreset.CUSTOM)
 			{
 				applyHeadIconPreset(preset);
-				refreshConfigPanel();
 			}
 			return;
 		}
@@ -413,7 +401,8 @@ public class CustomizeALotPlugin extends Plugin
 					CustomizeALotConfig.GROUP,
 					presetKey,
 					"CUSTOM");
-				refreshConfigPanel();
+				CustomizeALotConfigPanelSync.refreshOpenPanel(
+					Collections.<String, Object>singletonMap(presetKey, "CUSTOM"));
 			}
 		});
 	}
@@ -909,17 +898,9 @@ public class CustomizeALotPlugin extends Plugin
 
 	private void applyPreset(CustomizeALotPreset preset)
 	{
-		boolean previouslyApplyingPreset = applyingPreset;
-		applyingPreset = true;
-		try
-		{
-			applyPreset(preset, (key, value) ->
-				configManager.setConfiguration(CustomizeALotConfig.GROUP, key, value));
-		}
-		finally
-		{
-			applyingPreset = previouslyApplyingPreset;
-		}
+		Map<String, Object> presetSettings = new LinkedHashMap<>();
+		applyPreset(preset, presetSettings::put);
+		applySectionPreset(presetSettings);
 	}
 
 	private void applyHealthBarPreset(CustomizeALotHealthBarPreset preset)
@@ -945,102 +926,12 @@ public class CustomizeALotPlugin extends Plugin
 		{
 			applySectionPreset(presetSettings, (key, value) ->
 				configManager.setConfiguration(CustomizeALotConfig.GROUP, key, value));
+			CustomizeALotConfigPanelSync.refreshOpenPanel(presetSettings);
 		}
 		finally
 		{
 			applyingPreset = previouslyApplyingPreset;
 		}
-	}
-
-	private void refreshConfigPanel()
-	{
-		if (!SwingUtilities.isEventDispatchThread())
-		{
-			return;
-		}
-
-		Component focusOwner = KeyboardFocusManager
-			.getCurrentKeyboardFocusManager()
-			.getFocusOwner();
-		for (Component component = focusOwner;
-			component != null;
-			component = component.getParent())
-		{
-			if (containsPresetSelector(component))
-			{
-				// RuneLite has no targeted public rebuild hook for its open config panel.
-				// Limit this compatibility refresh to the focused Customize a Lot panel.
-				eventBus.post(new ProfileChanged());
-				return;
-			}
-		}
-
-		for (Window window : Window.getWindows())
-		{
-			if (window.isShowing() && containsShowingPresetSelector(window))
-			{
-				eventBus.post(new ProfileChanged());
-				return;
-			}
-		}
-	}
-
-	static boolean containsPresetSelector(Component component)
-	{
-		if (component instanceof JComboBox)
-		{
-			JComboBox<?> comboBox = (JComboBox<?>) component;
-			for (int index = 0; index < comboBox.getItemCount(); index++)
-			{
-				if (isPresetSelectorItem(comboBox.getItemAt(index)))
-				{
-					return true;
-				}
-			}
-		}
-
-		if (!(component instanceof Container))
-		{
-			return false;
-		}
-		for (Component child : ((Container) component).getComponents())
-		{
-			if (containsPresetSelector(child))
-			{
-				return true;
-			}
-		}
-		return false;
-	}
-
-	private static boolean isPresetSelectorItem(Object item)
-	{
-		return item instanceof CustomizeALotPreset
-			|| item instanceof CustomizeALotHealthBarPreset
-			|| item instanceof CustomizeALotOverheadChatPreset
-			|| item instanceof CustomizeALotHeadIconPreset;
-	}
-
-	private static boolean containsShowingPresetSelector(Component component)
-	{
-		if (component instanceof JComboBox
-			&& component.isShowing()
-			&& containsPresetSelector(component))
-		{
-			return true;
-		}
-		if (!(component instanceof Container))
-		{
-			return false;
-		}
-		for (Component child : ((Container) component).getComponents())
-		{
-			if (containsShowingPresetSelector(child))
-			{
-				return true;
-			}
-		}
-		return false;
 	}
 
 	static void applyPreset(CustomizeALotPreset preset, BiConsumer<String, Object> settingWriter)
