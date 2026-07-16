@@ -137,10 +137,10 @@ public class CustomizeALotPresetWorkflowTest
 		};
 
 		assertTrue(CustomizeALotPlugin.presetMatchesConfig(
-			CustomizeALotPreset.RUNESCAPE,
+			CustomizeALotPreset.RUINED_HEIRS_ONE_TICK,
 			matching));
 		assertFalse(CustomizeALotPlugin.presetMatchesConfig(
-			CustomizeALotPreset.RUNESCAPE,
+			CustomizeALotPreset.RUINED_HEIRS_ONE_TICK,
 			mismatched));
 	}
 

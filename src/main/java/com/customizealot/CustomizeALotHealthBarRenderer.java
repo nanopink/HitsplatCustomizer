@@ -13,9 +13,11 @@ import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import javax.inject.Inject;
 import net.runelite.api.Actor;
@@ -52,6 +54,7 @@ final class CustomizeALotHealthBarRenderer
 	private static final double MAX_CORNER_RADIUS = 50.0;
 	private static final int MAX_DAMAGE_TRAIL_MILLIS = 5000;
 	private static final int MAX_DAMAGE_TRAIL_STATES = 512;
+	private static final int MAX_PENDING_DAMAGE_EVENTS = 64;
 	private static final long DAMAGE_TRAIL_STALE_MILLIS = 10_000L;
 	private static final long DAMAGE_TRAIL_PRUNE_INTERVAL_MILLIS = 1_000L;
 	private static final int ROUNDED_GEOMETRY_CACHE_LIMIT = 32;
@@ -144,9 +147,22 @@ final class CustomizeALotHealthBarRenderer
 		}
 
 		long nowMillis = monotonicMillis();
+		Integer maximumHitpoints = exactMaximumHitpoints(actor);
+		int observedHealthScale = actor.getHealthScale();
+		int observedHealthRatio = actor.getHealthRatio();
+		Double observedHealthFraction = observedHealthRatio >= 0 && observedHealthScale > 0
+			? healthFraction(observedHealthRatio, observedHealthScale)
+			: null;
+		if ((maximumHitpoints == null || maximumHitpoints <= 0)
+			&& observedHealthFraction == null)
+		{
+			return;
+		}
 		damageTrailState(actor, nowMillis).recordUnobservedDamage(
 			amount,
-			exactMaximumHitpoints(actor),
+			maximumHitpoints,
+			observedHealthFraction,
+			observedHealthScale,
 			nowMillis);
 	}
 
@@ -191,16 +207,22 @@ final class CustomizeALotHealthBarRenderer
 			return NO_OCCUPIED_TOP;
 		}
 
-		int percent = effectiveScalePercent(
+		int widthPercent = effectiveScalePercent(
 			config.healthBarScaleMode(),
 			config.healthBarScalePercent(),
 			config.healthBarLargeScalePercent(),
 			config.healthBarScaleThreshold(),
 			healthScale);
-		int width = scaled(back.getWidth(), percent);
+		int heightPercent = effectiveScalePercent(
+			config.healthBarScaleMode(),
+			config.healthBarScalePercent(),
+			config.healthBarLargeHeightScalePercent(),
+			config.healthBarScaleThreshold(),
+			healthScale);
+		int width = scaled(back.getWidth(), widthPercent);
 		int height = rasterDimension(scaledDimension(
 			clampedHealthBarHeight(config.healthBarHeight()),
-			percent));
+			heightPercent));
 		int x = anchor.getX() - width / 2 + config.healthBarXOffset();
 		int y = anchor.getY() - height - 2 - config.healthBarYOffset();
 		int fillWidth = filledWidth(width, ratio, healthScale);
@@ -233,19 +255,27 @@ final class CustomizeALotHealthBarRenderer
 		int healthScale,
 		long nowMillis)
 	{
-		int percent = effectiveScalePercent(
+		int widthPercent = effectiveScalePercent(
 			config.healthBarScaleMode(),
 			config.healthBarScalePercent(),
 			config.healthBarLargeScalePercent(),
 			config.healthBarScaleThreshold(),
 			healthScale);
+		int heightPercent = effectiveScalePercent(
+			config.healthBarScaleMode(),
+			config.healthBarScalePercent(),
+			config.healthBarLargeHeightScalePercent(),
+			config.healthBarScaleThreshold(),
+			healthScale);
 		double width = scaledDimension(
 			clampedCustomWidth(config.healthBarSolidWidth()),
-			percent);
+			widthPercent);
 		double height = scaledDimension(
 			clampedHealthBarHeight(config.healthBarHeight()),
-			percent);
-		double x = anchor.getX() - width / 2.0 + config.healthBarXOffset();
+			heightPercent);
+		double x = alignedCenteredCoordinate(
+			anchor.getX() + config.healthBarXOffset(),
+			width);
 		double y = anchor.getY() - height - 2.0 - config.healthBarYOffset();
 		CustomizeALotHealthBarFillDirection fillDirection = effectiveFillDirection(
 			config.healthBarFillDirection());
@@ -1241,6 +1271,14 @@ final class CustomizeALotHealthBarRenderer
 		return Math.max(0.1, nonnegativeFinite(dimension) * clampScalePercent(percent) / 100.0);
 	}
 
+	static double alignedCenteredCoordinate(double center, double dimension)
+	{
+		double coordinate = center - dimension / 2.0;
+		return Math.abs(dimension - Math.rint(dimension)) < 1.0e-9
+			? Math.round(coordinate)
+			: coordinate;
+	}
+
 	private static int rasterDimension(double dimension)
 	{
 		return Math.max(1, (int) Math.round(dimension));
@@ -1320,13 +1358,17 @@ final class CustomizeALotHealthBarRenderer
 			double borderThickness)
 		{
 			inner = barShape(0.0, 0.0, width, height, cornerRadius);
-			Area borderArea = new Area(barShape(
-				-borderThickness,
-				-borderThickness,
-				width + borderThickness * 2.0,
-				height + borderThickness * 2.0,
-				cornerRadius + borderThickness));
-			borderArea.subtract(new Area(inner));
+			Area borderArea = new Area(inner);
+			double inset = Math.min(borderThickness, Math.min(width, height) / 2.0);
+			if (inset > 0.0 && width > inset * 2.0 && height > inset * 2.0)
+			{
+				borderArea.subtract(new Area(barShape(
+					inset,
+					inset,
+					width - inset * 2.0,
+					height - inset * 2.0,
+					Math.max(0.0, cornerRadius - inset))));
+			}
 			border = borderArea;
 		}
 	}
@@ -1342,24 +1384,49 @@ final class CustomizeALotHealthBarRenderer
 		private double trailTargetFraction;
 		private long drainStartMillis;
 		private long lastSeenMillis;
-		private double pendingDamageFraction;
-		private boolean pendingDamageAssumesFullHealth;
+		private final List<PendingDamageEvent> pendingDamageEvents = new ArrayList<>();
 
-		void recordUnobservedDamage(int amount, Integer maximumHitpoints, long nowMillis)
+		void recordUnobservedDamage(
+			int amount,
+			Integer maximumHitpoints,
+			Double observedHealthFraction,
+			int observedHealthScale,
+			long nowMillis)
 		{
-			if (initialized || amount <= 0)
+			if (amount <= 0)
 			{
 				return;
 			}
 
+			double damageFraction = Double.NaN;
 			if (maximumHitpoints != null && maximumHitpoints > 0)
 			{
-				pendingDamageFraction += amount / (double) maximumHitpoints;
+				damageFraction = amount / (double) maximumHitpoints;
 			}
-			else
+			double observedFraction = Double.NaN;
+			int safeObservedScale = 0;
+			if (observedHealthFraction != null
+				&& Double.isFinite(observedHealthFraction)
+				&& observedHealthScale > 0)
 			{
-				pendingDamageAssumesFullHealth = true;
+				observedFraction = clampFraction(observedHealthFraction);
+				safeObservedScale = observedHealthScale;
 			}
+			if (!Double.isFinite(damageFraction) && !Double.isFinite(observedFraction))
+			{
+				return;
+			}
+
+			if (pendingDamageEvents.size() >= MAX_PENDING_DAMAGE_EVENTS)
+			{
+				pendingDamageEvents.remove(0);
+			}
+			pendingDamageEvents.add(new PendingDamageEvent(
+				amount,
+				damageFraction,
+				observedFraction,
+				safeObservedScale,
+				nowMillis));
 			lastSeenMillis = nowMillis;
 		}
 
@@ -1377,43 +1444,63 @@ final class CustomizeALotHealthBarRenderer
 			if (nowMillis < lastSeenMillis)
 			{
 				initialize(currentHealth, safeHealthScale, nowMillis);
-				clearPendingDamage();
+				pendingDamageEvents.clear();
 				return currentHealth;
 			}
 			if (!initialized)
 			{
-				if (pendingDamageFraction <= 0.0 && !pendingDamageAssumesFullHealth)
+				if (pendingDamageEvents.isEmpty())
 				{
 					initialize(currentHealth, safeHealthScale, nowMillis);
 					return currentHealth;
 				}
-
-				double previousHealth = pendingDamageAssumesFullHealth
-					? 1.0
-					: clampFraction(currentHealth + pendingDamageFraction);
-				initialize(previousHealth, safeHealthScale, nowMillis);
-				clearPendingDamage();
+				replayPendingDamageEvents(
+					currentHealth,
+					safeHealthScale,
+					nowMillis,
+					safeHold,
+					safeDrain);
+				return Math.max(currentHealth, trailAt(nowMillis, safeDrain));
 			}
 			else if (publicHealthScale != safeHealthScale)
 			{
 				initialize(currentHealth, safeHealthScale, nowMillis);
-				clearPendingDamage();
+				pendingDamageEvents.clear();
 				return currentHealth;
 			}
 
 			double existingTrail = trailAt(nowMillis, safeDrain);
 			if (currentHealth < lastHealthFraction - HEALTH_EPSILON)
 			{
-				trailStartFraction = Math.max(existingTrail, lastHealthFraction);
-				trailTargetFraction = currentHealth;
-				drainStartMillis = nowMillis + safeHold;
+				if (!pendingDamageEvents.isEmpty())
+				{
+					replayPendingDamageEvents(
+						currentHealth,
+						safeHealthScale,
+						nowMillis,
+						safeHold,
+						safeDrain);
+				}
+				else
+				{
+					startTrail(
+						Math.max(existingTrail, lastHealthFraction),
+						currentHealth,
+						nowMillis,
+						safeHold);
+				}
 			}
-			else if (currentHealth > lastHealthFraction + HEALTH_EPSILON
-				&& currentHealth >= existingTrail)
+			else if (currentHealth > lastHealthFraction + HEALTH_EPSILON)
 			{
-				trailStartFraction = currentHealth;
-				trailTargetFraction = currentHealth;
-				drainStartMillis = nowMillis;
+				pendingDamageEvents.clear();
+				if (currentHealth >= existingTrail)
+				{
+					initialize(currentHealth, safeHealthScale, nowMillis);
+				}
+			}
+			else if (!pendingDamageEvents.isEmpty())
+			{
+				discardExpiredDamageEvents(nowMillis, safeHold, safeDrain);
 			}
 
 			lastHealthFraction = currentHealth;
@@ -1432,10 +1519,311 @@ final class CustomizeALotHealthBarRenderer
 			lastSeenMillis = nowMillis;
 		}
 
-		private void clearPendingDamage()
+		private void replayPendingDamageEvents(
+			double currentHealth,
+			int currentHealthScale,
+			long nowMillis,
+			int holdMillis,
+			int drainMillis)
 		{
-			pendingDamageFraction = 0.0;
-			pendingDamageAssumesFullHealth = false;
+			List<DamageTransition> transitions = damageTransitions(
+				currentHealth,
+				currentHealthScale);
+			if (transitions.isEmpty() && initialized
+				&& lastHealthFraction > currentHealth + HEALTH_EPSILON)
+			{
+				transitions.add(new DamageTransition(
+					lastHealthFraction,
+					currentHealth,
+					pendingDamageEvents.get(0).eventMillis));
+			}
+
+			if (!initialized)
+			{
+				double initialHealth = transitions.isEmpty()
+					? currentHealth
+					: transitions.get(0).startFraction;
+				long initialMillis = transitions.isEmpty()
+					? nowMillis
+					: transitions.get(0).eventMillis;
+				initialize(initialHealth, currentHealthScale, initialMillis);
+			}
+
+			for (DamageTransition transition : transitions)
+			{
+				double existingTrail = trailAt(transition.eventMillis, drainMillis);
+				startTrail(
+					Math.max(existingTrail, transition.startFraction),
+					transition.targetFraction,
+					transition.eventMillis,
+					holdMillis);
+			}
+
+			pendingDamageEvents.clear();
+			lastHealthFraction = currentHealth;
+			lastSeenMillis = nowMillis;
+		}
+
+		private List<DamageTransition> damageTransitions(
+			double currentHealth,
+			int currentHealthScale)
+		{
+			if (initialized && lastHealthFraction > currentHealth + HEALTH_EPSILON)
+			{
+				return allocatedDamageTransitions(lastHealthFraction, currentHealth);
+			}
+
+			boolean allObserved = true;
+			for (PendingDamageEvent event : pendingDamageEvents)
+			{
+				if (event.observedHealthScale != currentHealthScale
+					|| !Double.isFinite(event.observedHealthFraction))
+				{
+					allObserved = false;
+					break;
+				}
+			}
+
+			return allObserved
+				? observedDamageTransitions(currentHealth)
+				: reverseDamageTransitions(currentHealth, currentHealthScale);
+		}
+
+		private List<DamageTransition> allocatedDamageTransitions(
+			double initialHealth,
+			double currentHealth)
+		{
+			List<DamageTransition> transitions = new ArrayList<>();
+			long totalDamage = 0L;
+			for (PendingDamageEvent event : pendingDamageEvents)
+			{
+				totalDamage += event.damageAmount;
+			}
+			if (totalDamage <= 0L)
+			{
+				return transitions;
+			}
+
+			double totalHealthLoss = initialHealth - currentHealth;
+			double runningHealth = initialHealth;
+			long allocatedDamage = 0L;
+			for (int index = 0; index < pendingDamageEvents.size(); index++)
+			{
+				PendingDamageEvent event = pendingDamageEvents.get(index);
+				allocatedDamage += event.damageAmount;
+				double targetHealth = index + 1 == pendingDamageEvents.size()
+					? currentHealth
+					: initialHealth
+						- totalHealthLoss * allocatedDamage / (double) totalDamage;
+				addTransition(
+					transitions,
+					runningHealth,
+					targetHealth,
+					event.eventMillis);
+				runningHealth = targetHealth;
+			}
+			return transitions;
+		}
+
+		private List<DamageTransition> observedDamageTransitions(double currentHealth)
+		{
+			List<DamageTransition> transitions = new ArrayList<>();
+			PendingDamageEvent firstEvent = pendingDamageEvents.get(0);
+			PendingDamageEvent lastEvent = pendingDamageEvents.get(pendingDamageEvents.size() - 1);
+			boolean postHitSamples = Math.abs(lastEvent.observedHealthFraction - currentHealth)
+				<= HEALTH_EPSILON;
+			long laterDamage = 0L;
+			for (int index = 1; index < pendingDamageEvents.size(); index++)
+			{
+				laterDamage += pendingDamageEvents.get(index).damageAmount;
+			}
+			double inferredPostHitInitialHealth = laterDamage <= 0L
+				? firstEvent.observedHealthFraction
+				: firstEvent.observedHealthFraction
+					+ (firstEvent.observedHealthFraction - currentHealth)
+						* firstEvent.damageAmount / (double) laterDamage;
+			// An inferred value above full health means at least one sample cannot be post-hit.
+			// Distribute the known loss by hit size so older damage keeps its older timestamp.
+			if (postHitSamples
+				&& pendingDamageEvents.size() > 1
+				&& inferredPostHitInitialHealth > 1.0 + HEALTH_EPSILON)
+			{
+				double inferredInitialHealth = currentHealth;
+				double exactDamageFraction = 0.0;
+				for (PendingDamageEvent event : pendingDamageEvents)
+				{
+					inferredInitialHealth = Math.max(
+						inferredInitialHealth,
+						event.observedHealthFraction);
+					if (Double.isFinite(event.damageFraction) && event.damageFraction > 0.0)
+					{
+						exactDamageFraction += event.damageFraction;
+					}
+				}
+				inferredInitialHealth = Math.max(
+					inferredInitialHealth,
+					clampFraction(currentHealth + exactDamageFraction));
+				return allocatedDamageTransitions(inferredInitialHealth, currentHealth);
+			}
+
+			if (postHitSamples)
+			{
+				double runningHealth = initialized ? lastHealthFraction : Double.NaN;
+				for (PendingDamageEvent event : pendingDamageEvents)
+				{
+					double targetHealth = clampFraction(event.observedHealthFraction);
+					double previousHealth = runningHealth;
+					if (!Double.isFinite(previousHealth)
+						&& Double.isFinite(event.damageFraction)
+						&& event.damageFraction > 0.0)
+					{
+						previousHealth = clampFraction(targetHealth + event.damageFraction);
+					}
+					addTransition(transitions, previousHealth, targetHealth, event.eventMillis);
+					runningHealth = targetHealth;
+				}
+				if (Double.isFinite(runningHealth)
+					&& runningHealth > currentHealth + HEALTH_EPSILON)
+				{
+					addTransition(
+						transitions,
+						runningHealth,
+						currentHealth,
+						lastEvent.eventMillis);
+				}
+				return transitions;
+			}
+
+			for (int index = 0; index < pendingDamageEvents.size(); index++)
+			{
+				PendingDamageEvent event = pendingDamageEvents.get(index);
+				double targetHealth = index + 1 < pendingDamageEvents.size()
+					? pendingDamageEvents.get(index + 1).observedHealthFraction
+					: currentHealth;
+				double previousHealth = Math.max(event.observedHealthFraction, targetHealth);
+				addTransition(transitions, previousHealth, targetHealth, event.eventMillis);
+			}
+			return transitions;
+		}
+
+		private List<DamageTransition> reverseDamageTransitions(
+			double currentHealth,
+			int currentHealthScale)
+		{
+			DamageTransition[] reversed = new DamageTransition[pendingDamageEvents.size()];
+			double runningHealth = currentHealth;
+			for (int index = pendingDamageEvents.size() - 1; index >= 0; index--)
+			{
+				PendingDamageEvent event = pendingDamageEvents.get(index);
+				double previousHealth = runningHealth;
+				if (Double.isFinite(event.damageFraction) && event.damageFraction > 0.0)
+				{
+					previousHealth = clampFraction(runningHealth + event.damageFraction);
+				}
+				if (event.observedHealthScale == currentHealthScale
+					&& Double.isFinite(event.observedHealthFraction))
+				{
+					previousHealth = Math.max(previousHealth, event.observedHealthFraction);
+				}
+				reversed[index] = new DamageTransition(
+					previousHealth,
+					runningHealth,
+					event.eventMillis);
+				runningHealth = previousHealth;
+			}
+			List<DamageTransition> transitions = new ArrayList<>();
+			for (DamageTransition transition : reversed)
+			{
+				addTransition(
+					transitions,
+					transition.startFraction,
+					transition.targetFraction,
+					transition.eventMillis);
+			}
+			return transitions;
+		}
+
+		private static void addTransition(
+			List<DamageTransition> transitions,
+			double startFraction,
+			double targetFraction,
+			long eventMillis)
+		{
+			if (Double.isFinite(startFraction)
+				&& startFraction > targetFraction + HEALTH_EPSILON)
+			{
+				transitions.add(new DamageTransition(
+					clampFraction(startFraction),
+					clampFraction(targetFraction),
+					eventMillis));
+			}
+		}
+
+		private void startTrail(
+			double startFraction,
+			double targetFraction,
+			long eventMillis,
+			int holdMillis)
+		{
+			trailStartFraction = clampFraction(startFraction);
+			trailTargetFraction = clampFraction(targetFraction);
+			drainStartMillis = eventMillis + holdMillis;
+		}
+
+		private void discardExpiredDamageEvents(long nowMillis, int holdMillis, int drainMillis)
+		{
+			Iterator<PendingDamageEvent> iterator = pendingDamageEvents.iterator();
+			while (iterator.hasNext())
+			{
+				PendingDamageEvent event = iterator.next();
+				if (event.isExpired(nowMillis, holdMillis, drainMillis))
+				{
+					iterator.remove();
+				}
+			}
+		}
+
+		private static final class PendingDamageEvent
+		{
+			private final int damageAmount;
+			private final double damageFraction;
+			private final double observedHealthFraction;
+			private final int observedHealthScale;
+			private final long eventMillis;
+
+			private PendingDamageEvent(
+				int damageAmount,
+				double damageFraction,
+				double observedHealthFraction,
+				int observedHealthScale,
+				long eventMillis)
+			{
+				this.damageAmount = damageAmount;
+				this.damageFraction = damageFraction;
+				this.observedHealthFraction = observedHealthFraction;
+				this.observedHealthScale = observedHealthScale;
+				this.eventMillis = eventMillis;
+			}
+
+			private boolean isExpired(long nowMillis, int holdMillis, int drainMillis)
+			{
+				return nowMillis >= eventMillis
+					&& nowMillis - eventMillis >= (long) holdMillis + drainMillis;
+			}
+		}
+
+		private static final class DamageTransition
+		{
+			private final double startFraction;
+			private final double targetFraction;
+			private final long eventMillis;
+
+			private DamageTransition(double startFraction, double targetFraction, long eventMillis)
+			{
+				this.startFraction = startFraction;
+				this.targetFraction = targetFraction;
+				this.eventMillis = eventMillis;
+			}
 		}
 
 		private double trailAt(long nowMillis, int drainMillis)

@@ -70,6 +70,69 @@ final class CustomizeALotConfigPanelSync
 		});
 	}
 
+	static void refreshOpenPanelNow(Map<String, Object> values)
+	{
+		if (!SwingUtilities.isEventDispatchThread())
+		{
+			refreshOpenPanel(values);
+			return;
+		}
+
+		for (Window window : Window.getWindows())
+		{
+			synchronize(window, values);
+		}
+	}
+
+	static boolean openSpinnerHasValue(String key, String configuredValue)
+	{
+		if (!SwingUtilities.isEventDispatchThread())
+		{
+			return false;
+		}
+		for (Window window : Window.getWindows())
+		{
+			if (spinnerHasValue(window, key, configuredValue))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	static boolean spinnerHasValue(Component root, String key, String configuredValue)
+	{
+		ConfigField field = FIELDS.get(key);
+		if (root == null || field == null || configuredValue == null)
+		{
+			return false;
+		}
+
+		Container configPanel = findConfigPanel(root);
+		Container sectionPanel = configPanel == null
+			? null
+			: findSectionPanel(configPanel, field.section);
+		Container row = sectionPanel == null ? null : findRow(sectionPanel, field.name);
+		JSpinner spinner = row == null
+			? null
+			: (JSpinner) findDescendant(row, child -> child instanceof JSpinner);
+		if (spinner == null || !(spinner.getValue() instanceof Number))
+		{
+			return false;
+		}
+
+		try
+		{
+			return Double.compare(
+				((Number) spinner.getValue()).doubleValue(),
+				Double.parseDouble(configuredValue)) == 0;
+		}
+		catch (NumberFormatException ex)
+		{
+			return false;
+		}
+	}
+
 	static int synchronize(Component root, Map<String, Object> values)
 	{
 		if (root == null || values == null || values.isEmpty())
@@ -105,7 +168,7 @@ final class CustomizeALotConfigPanelSync
 			}
 
 			Container row = findRow(sectionPanel, field.name);
-			if (row != null && updateControl(row, entry.getValue(), field.alpha))
+			if (row != null && updateControl(row, entry.getValue(), field))
 			{
 				synchronizedFields++;
 			}
@@ -218,7 +281,7 @@ final class CustomizeALotConfigPanelSync
 		return null;
 	}
 
-	private static boolean updateControl(Container row, Object value, boolean alpha)
+	private static boolean updateControl(Container row, Object value, ConfigField field)
 	{
 		if (value instanceof Boolean)
 		{
@@ -257,7 +320,7 @@ final class CustomizeALotConfigPanelSync
 			}
 			Color color = (Color) value;
 			colorButton.setColor(color);
-			String colorHex = alpha
+			String colorHex = field.alpha
 				? ColorUtil.colorToAlphaHexCode(color)
 				: ColorUtil.colorToHexCode(color);
 			colorButton.setText("#" + colorHex.toUpperCase(Locale.ROOT));
@@ -377,7 +440,8 @@ final class CustomizeALotConfigPanelSync
 		field(fields, HEALTH_BARS_SECTION, "Scale mode", CustomizeALotConfig.HEALTH_BAR_SCALE_MODE_KEY);
 		field(fields, HEALTH_BARS_SECTION, "Scale", CustomizeALotConfig.HEALTH_BAR_SCALE_PERCENT_KEY);
 		field(fields, HEALTH_BARS_SECTION, "Boss scale threshold", CustomizeALotConfig.HEALTH_BAR_SCALE_THRESHOLD_KEY);
-		field(fields, HEALTH_BARS_SECTION, "Large scale", CustomizeALotConfig.HEALTH_BAR_LARGE_SCALE_PERCENT_KEY);
+		field(fields, HEALTH_BARS_SECTION, "Boss width scale", CustomizeALotConfig.HEALTH_BAR_LARGE_SCALE_PERCENT_KEY);
+		field(fields, HEALTH_BARS_SECTION, "Boss height scale", CustomizeALotConfig.HEALTH_BAR_LARGE_HEIGHT_SCALE_PERCENT_KEY);
 		field(fields, HEALTH_BARS_SECTION, "Width", CustomizeALotConfig.HEALTH_BAR_SOLID_WIDTH_KEY);
 		field(fields, HEALTH_BARS_SECTION, "Height", CustomizeALotConfig.HEALTH_BAR_HEIGHT_KEY);
 		field(fields, HEALTH_BARS_SECTION, "X offset", CustomizeALotConfig.HEALTH_BAR_X_OFFSET_KEY);
@@ -409,6 +473,10 @@ final class CustomizeALotConfigPanelSync
 		field(fields, OVERHEAD_CHAT_SECTION, "NPC overhead text", CustomizeALotConfig.SHOW_NPC_OVERHEAD_CHAT_KEY);
 		field(fields, OVERHEAD_CHAT_SECTION, "Font", CustomizeALotConfig.OVERHEAD_CHAT_FONT_KEY);
 		alphaField(fields, OVERHEAD_CHAT_SECTION, "Color", CustomizeALotConfig.OVERHEAD_CHAT_COLOR_KEY);
+		field(fields, OVERHEAD_CHAT_SECTION, "Relationship colors", CustomizeALotConfig.OVERHEAD_CHAT_RELATIONSHIP_COLORS_KEY);
+		alphaField(fields, OVERHEAD_CHAT_SECTION, "Friend color", CustomizeALotConfig.OVERHEAD_CHAT_FRIEND_COLOR_KEY);
+		alphaField(fields, OVERHEAD_CHAT_SECTION, "Clan color", CustomizeALotConfig.OVERHEAD_CHAT_CLAN_COLOR_KEY);
+		alphaField(fields, OVERHEAD_CHAT_SECTION, "Group iron color", CustomizeALotConfig.OVERHEAD_CHAT_GROUP_IRON_COLOR_KEY);
 		field(fields, OVERHEAD_CHAT_SECTION, "Default Text Effect", CustomizeALotConfig.OVERHEAD_CHAT_EFFECT_KEY);
 		field(fields, OVERHEAD_CHAT_SECTION, "Text shadow", CustomizeALotConfig.OVERHEAD_CHAT_SHADOW_KEY);
 		alphaField(fields, OVERHEAD_CHAT_SECTION, "Shadow color", CustomizeALotConfig.OVERHEAD_CHAT_SHADOW_COLOR_KEY);

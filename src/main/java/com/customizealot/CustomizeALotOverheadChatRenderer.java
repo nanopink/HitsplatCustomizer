@@ -42,6 +42,10 @@ final class CustomizeALotOverheadChatRenderer
 			config.showNpcOverheadChat(),
 			fontFrom(fontType),
 			config.overheadChatColor(),
+			config.overheadChatRelationshipColors(),
+			config.overheadChatFriendColor(),
+			config.overheadChatClanColor(),
+			config.overheadChatGroupIronColor(),
 			config.overheadChatShadow(),
 			config.overheadChatShadowColor(),
 			config.overheadChatEffect(),
@@ -90,7 +94,7 @@ final class CustomizeALotOverheadChatRenderer
 			return;
 		}
 
-		String text = Text.removeTags(overheadText);
+		String text = displayText(overheadText);
 		if (text.isEmpty())
 		{
 			return;
@@ -181,6 +185,44 @@ final class CustomizeALotOverheadChatRenderer
 		return actor instanceof Player
 			? PLAYER_CHAT_LIFETIME_CYCLES
 			: NPC_CHAT_LIFETIME_CYCLES;
+	}
+
+	static String displayText(String overheadText)
+	{
+		if (overheadText == null)
+		{
+			return "";
+		}
+
+		return Text.removeFormattingTags(overheadText)
+			.replace("<lt>", "<")
+			.replace("<gt>", ">");
+	}
+
+	static Color relationshipColor(
+		Style style,
+		boolean groupIronMember,
+		boolean friend,
+		boolean clanMember)
+	{
+		Style effectiveStyle = style == null ? Style.defaults() : style;
+		if (!effectiveStyle.relationshipColors)
+		{
+			return effectiveStyle.color;
+		}
+		if (groupIronMember)
+		{
+			return effectiveStyle.groupIronColor;
+		}
+		if (friend)
+		{
+			return effectiveStyle.friendColor;
+		}
+		if (clanMember)
+		{
+			return effectiveStyle.clanColor;
+		}
+		return effectiveStyle.color;
 	}
 
 	static void drawStyledEffect(
@@ -734,6 +776,10 @@ final class CustomizeALotOverheadChatRenderer
 		private final boolean showNpcOverheadChat;
 		private final Font font;
 		private final Color color;
+		private final boolean relationshipColors;
+		private final Color friendColor;
+		private final Color clanColor;
+		private final Color groupIronColor;
 		private final boolean shadow;
 		private final Color shadowColor;
 		private final CustomizeALotOverheadChatEffect fallbackEffect;
@@ -745,6 +791,10 @@ final class CustomizeALotOverheadChatRenderer
 			boolean showNpcOverheadChat,
 			Font font,
 			Color color,
+			boolean relationshipColors,
+			Color friendColor,
+			Color clanColor,
+			Color groupIronColor,
 			boolean shadow,
 			Color shadowColor,
 			CustomizeALotOverheadChatEffect fallbackEffect,
@@ -755,6 +805,10 @@ final class CustomizeALotOverheadChatRenderer
 			this.showNpcOverheadChat = showNpcOverheadChat;
 			this.font = font == null ? FontManager.getRunescapeBoldFont() : font;
 			this.color = color == null ? Color.YELLOW : color;
+			this.relationshipColors = relationshipColors;
+			this.friendColor = friendColor == null ? this.color : friendColor;
+			this.clanColor = clanColor == null ? this.color : clanColor;
+			this.groupIronColor = groupIronColor == null ? this.color : groupIronColor;
 			this.shadow = shadow;
 			this.shadowColor = shadowColor == null ? Color.BLACK : shadowColor;
 			this.fallbackEffect = fallbackEffect == null
@@ -770,6 +824,10 @@ final class CustomizeALotOverheadChatRenderer
 				true,
 				true,
 				FontManager.getRunescapeBoldFont(),
+				Color.YELLOW,
+				false,
+				Color.YELLOW,
+				Color.YELLOW,
 				Color.YELLOW,
 				true,
 				Color.BLACK,
@@ -791,6 +849,11 @@ final class CustomizeALotOverheadChatRenderer
 		Color getColor()
 		{
 			return color;
+		}
+
+		boolean usesRelationshipColors()
+		{
+			return relationshipColors;
 		}
 
 		boolean hasShadow()

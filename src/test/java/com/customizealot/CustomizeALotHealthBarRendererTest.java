@@ -99,6 +99,29 @@ public class CustomizeALotHealthBarRendererTest
 				150,
 				100,
 				100));
+
+		assertEquals(
+			100,
+			CustomizeALotHealthBarRenderer.effectiveScalePercent(
+				CustomizeALotHealthScaleMode.THRESHOLD,
+				100,
+				100,
+				100,
+				100));
+	}
+
+	@Test
+	public void wholePixelBarWidthsUseCrispCenteredCoordinates()
+	{
+		assertEquals(75.0,
+			CustomizeALotHealthBarRenderer.alignedCenteredCoordinate(100.0, 50.0),
+			0.0);
+		assertEquals(63.0,
+			CustomizeALotHealthBarRenderer.alignedCenteredCoordinate(100.0, 75.0),
+			0.0);
+		assertEquals(74.75,
+			CustomizeALotHealthBarRenderer.alignedCenteredCoordinate(100.0, 50.5),
+			0.0);
 	}
 
 	@Test
@@ -336,6 +359,39 @@ public class CustomizeALotHealthBarRendererTest
 	}
 
 	@Test
+	public void roundedSubpixelBorderStaysInsideConfiguredBarBounds()
+	{
+		Color scene = new Color(31, 47, 63);
+		BufferedImage image = new BufferedImage(54, 12, BufferedImage.TYPE_INT_ARGB);
+		fillImage(image, scene);
+		Graphics2D graphics = image.createGraphics();
+		try
+		{
+			CustomizeALotHealthBarRenderer.drawCustomBar(
+				graphics,
+				2, 3, 50, 6, 25,
+				CustomizeALotHealthBarFillDirection.LEFT_TO_RIGHT,
+				CustomizeALotHealthBarGradient.SOLID,
+				Color.GREEN, Color.GREEN,
+				CustomizeALotHealthBarGradient.SOLID,
+				Color.RED, Color.RED,
+				0.5,
+				new Color(25, 25, 25, 230),
+				0.1,
+				0.5);
+		}
+		finally
+		{
+			graphics.dispose();
+		}
+
+		assertEquals(scene.getRGB(), image.getRGB(1, 6));
+		assertEquals(scene.getRGB(), image.getRGB(52, 6));
+		assertEquals(Color.GREEN.getRGB(), image.getRGB(3, 6));
+		assertEquals(Color.RED.getRGB(), image.getRGB(50, 6));
+	}
+
+	@Test
 	public void fractionalCustomDimensionsProduceSubpixelCoverage()
 	{
 		BufferedImage image = new BufferedImage(12, 8, BufferedImage.TYPE_INT_ARGB);
@@ -465,19 +521,216 @@ public class CustomizeALotHealthBarRendererTest
 	}
 
 	@Test
-	public void firstObservedDamagePrimesTheTrailBeforeInitialRender()
+	public void exactMaximumPrimesTheFirstTrailFromDamageAmount()
 	{
 		CustomizeALotHealthBarRenderer.DamageTrailState exact =
 			new CustomizeALotHealthBarRenderer.DamageTrailState();
-		exact.recordUnobservedDamage(20, 100, 100L);
+		exact.recordUnobservedDamage(20, 100, 0.6, 30, 100L);
 		assertEquals(0.8, exact.update(0.6, 30, 101L, 400, 600), 0.0);
 
 		CustomizeALotHealthBarRenderer.DamageTrailState unknown =
 			new CustomizeALotHealthBarRenderer.DamageTrailState();
-		unknown.recordUnobservedDamage(20, null, 100L);
-		assertEquals(1.0, unknown.update(0.6, 30, 101L, 400, 600), 0.0);
-		assertEquals(1.0, unknown.update(0.6, 30, 500L, 400, 600), 0.0);
-		assertEquals(0.8, unknown.update(0.6, 30, 801L, 400, 600), 0.000001);
+		unknown.recordUnobservedDamage(20, null, 0.6, 30, 100L);
+		assertEquals(0.6, unknown.update(0.6, 30, 101L, 400, 600), 0.0);
+		assertEquals(0.6, unknown.update(0.6, 30, 500L, 400, 600), 0.0);
+		assertEquals(0.6, unknown.update(0.6, 30, 801L, 400, 600), 0.0);
+	}
+
+	@Test
+	public void observedPublicHealthCanPrimeAnUnknownActorsFirstHit()
+	{
+		CustomizeALotHealthBarRenderer.DamageTrailState state =
+			new CustomizeALotHealthBarRenderer.DamageTrailState();
+		state.recordUnobservedDamage(20, null, 0.8, 30, 100L);
+
+		assertEquals(0.8, state.update(0.6, 30, 101L, 400, 600), 0.0);
+		assertEquals(0.8, state.update(0.6, 30, 500L, 400, 600), 0.0);
+		assertEquals(0.7, state.update(0.6, 30, 800L, 400, 600), 0.000001);
+	}
+
+	@Test
+	public void pendingFirstHitUsesItsEventTimeInsteadOfReplayingWhenFirstRendered()
+	{
+		CustomizeALotHealthBarRenderer.DamageTrailState state =
+			new CustomizeALotHealthBarRenderer.DamageTrailState();
+		state.recordUnobservedDamage(20, null, 0.8, 30, 100L);
+
+		assertEquals(0.6, state.update(0.6, 30, 1200L, 400, 600), 0.0);
+	}
+
+	@Test
+	public void pendingHitsKeepTheirOwnTimelinesBeforeTheFirstRender()
+	{
+		CustomizeALotHealthBarRenderer.DamageTrailState state =
+			new CustomizeALotHealthBarRenderer.DamageTrailState();
+		state.recordUnobservedDamage(20, null, 0.8, 30, 0L);
+		state.recordUnobservedDamage(20, null, 0.6, 30, 900L);
+
+		assertEquals(0.6, state.update(0.4, 30, 901L, 445, 245), 0.000001);
+	}
+
+	@Test
+	public void overlappingPendingHitsRetainFreshEarlierDamage()
+	{
+		CustomizeALotHealthBarRenderer.DamageTrailState state =
+			new CustomizeALotHealthBarRenderer.DamageTrailState();
+		state.recordUnobservedDamage(20, null, 0.8, 30, 0L);
+		state.recordUnobservedDamage(20, null, 0.6, 30, 100L);
+
+		assertEquals(0.8, state.update(0.4, 30, 101L, 445, 245), 0.0);
+	}
+
+	@Test
+	public void offscreenDamageUsesTheHitTimeAfterTheBarWasInitialized()
+	{
+		CustomizeALotHealthBarRenderer.DamageTrailState state =
+			new CustomizeALotHealthBarRenderer.DamageTrailState();
+		assertEquals(0.8, state.update(0.8, 30, 0L, 445, 245), 0.0);
+		state.recordUnobservedDamage(20, null, 0.8, 30, 100L);
+
+		assertEquals(0.6, state.update(0.6, 30, 1000L, 445, 245), 0.0);
+	}
+
+	@Test
+	public void recentOffscreenDamageStillShowsAfterTheBarWasInitialized()
+	{
+		CustomizeALotHealthBarRenderer.DamageTrailState state =
+			new CustomizeALotHealthBarRenderer.DamageTrailState();
+		assertEquals(0.8, state.update(0.8, 30, 0L, 445, 245), 0.0);
+		state.recordUnobservedDamage(20, null, 0.8, 30, 100L);
+
+		assertEquals(0.8, state.update(0.6, 30, 101L, 445, 245), 0.0);
+	}
+
+	@Test
+	public void postHitPublicRatioFallsBackToTheLastRenderedHealth()
+	{
+		CustomizeALotHealthBarRenderer.DamageTrailState state =
+			new CustomizeALotHealthBarRenderer.DamageTrailState();
+		assertEquals(0.8, state.update(0.8, 30, 0L, 445, 245), 0.0);
+		state.recordUnobservedDamage(20, null, 0.6, 30, 100L);
+
+		assertEquals(0.8, state.update(0.6, 30, 101L, 445, 245), 0.0);
+	}
+
+	@Test
+	public void delayedPostHitPublicRatioDoesNotReplayOldDamage()
+	{
+		CustomizeALotHealthBarRenderer.DamageTrailState state =
+			new CustomizeALotHealthBarRenderer.DamageTrailState();
+		assertEquals(0.8, state.update(0.8, 30, 0L, 445, 245), 0.0);
+		state.recordUnobservedDamage(20, null, 0.6, 30, 100L);
+
+		assertEquals(0.6, state.update(0.6, 30, 1000L, 445, 245), 0.0);
+	}
+
+	@Test
+	public void consecutivePostHitSamplesKeepTheirIndividualEventTimes()
+	{
+		CustomizeALotHealthBarRenderer.DamageTrailState state =
+			new CustomizeALotHealthBarRenderer.DamageTrailState();
+		assertEquals(0.8, state.update(0.8, 30, 0L, 445, 245), 0.0);
+		state.recordUnobservedDamage(20, null, 0.6, 30, 100L);
+		state.recordUnobservedDamage(20, null, 0.4, 30, 900L);
+
+		assertEquals(0.6, state.update(0.4, 30, 901L, 445, 245), 0.000001);
+	}
+
+	@Test
+	public void mixedPreAndPostHitSamplesKeepTheFreshHitTimeline()
+	{
+		CustomizeALotHealthBarRenderer.DamageTrailState state =
+			new CustomizeALotHealthBarRenderer.DamageTrailState();
+		assertEquals(1.0, state.update(1.0, 30, 0L, 445, 245), 0.0);
+		state.recordUnobservedDamage(20, null, 1.0, 30, 1L);
+		state.recordUnobservedDamage(20, null, 0.6, 30, 900L);
+
+		assertEquals(0.8, state.update(0.6, 30, 901L, 445, 245), 0.0);
+	}
+
+	@Test
+	public void firstRenderMixedSamplesDoNotFoldOldDamageIntoTheFreshHit()
+	{
+		CustomizeALotHealthBarRenderer.DamageTrailState state =
+			new CustomizeALotHealthBarRenderer.DamageTrailState();
+		state.recordUnobservedDamage(20, null, 1.0, 30, 1L);
+		state.recordUnobservedDamage(20, null, 0.6, 30, 900L);
+
+		assertEquals(0.8, state.update(0.6, 30, 901L, 445, 245), 0.0);
+	}
+
+	@Test
+	public void firstRenderPostHitSamplesKeepTheFreshObservedBaseline()
+	{
+		CustomizeALotHealthBarRenderer.DamageTrailState state =
+			new CustomizeALotHealthBarRenderer.DamageTrailState();
+		state.recordUnobservedDamage(20, null, 0.8, 30, 1L);
+		state.recordUnobservedDamage(20, null, 0.6, 30, 900L);
+
+		assertEquals(0.8, state.update(0.6, 30, 901L, 445, 245), 0.0);
+	}
+
+	@Test
+	public void mixedPendingEvidenceUsesTheCurrentPublicHealthScale()
+	{
+		CustomizeALotHealthBarRenderer.DamageTrailState state =
+			new CustomizeALotHealthBarRenderer.DamageTrailState();
+		state.recordUnobservedDamage(20, 100, null, 0, 0L);
+		state.recordUnobservedDamage(20, null, 0.6, 30, 900L);
+
+		assertEquals(0.6, state.update(0.4, 30, 901L, 445, 245), 0.0);
+	}
+
+	@Test
+	public void exactDamageKeepsTheLargerPreviouslyRenderedBaseline()
+	{
+		CustomizeALotHealthBarRenderer.DamageTrailState state =
+			new CustomizeALotHealthBarRenderer.DamageTrailState();
+		assertEquals(0.8, state.update(0.8, 30, 0L, 445, 245), 0.0);
+		state.recordUnobservedDamage(10, 100, 0.8, 30, 100L);
+
+		assertEquals(0.8, state.update(0.6, 30, 101L, 445, 245), 0.0);
+	}
+
+	@Test
+	public void overlappingHitsDrainContinuouslyAtTheOlderExpirationBoundary()
+	{
+		CustomizeALotHealthBarRenderer.DamageTrailState state =
+			new CustomizeALotHealthBarRenderer.DamageTrailState();
+		assertEquals(1.0, state.update(1.0, 30, 0L, 445, 245), 0.0);
+		state.recordUnobservedDamage(20, null, 1.0, 30, 100L);
+		assertEquals(1.0, state.update(0.8, 30, 101L, 445, 245), 0.0);
+		state.recordUnobservedDamage(20, null, 0.8, 30, 200L);
+		assertEquals(1.0, state.update(0.6, 30, 201L, 445, 245), 0.0);
+
+		double beforeDrainEnds = state.update(0.6, 30, 889L, 445, 245);
+		double whenDrainEnds = state.update(0.6, 30, 890L, 445, 245);
+		assertTrue(beforeDrainEnds - whenDrainEnds < 0.01);
+		assertEquals(0.6, whenDrainEnds, 0.0);
+	}
+
+	@Test
+	public void partialHealingClearsUnappliedDamageBeforeTheNextHit()
+	{
+		CustomizeALotHealthBarRenderer.DamageTrailState state =
+			new CustomizeALotHealthBarRenderer.DamageTrailState();
+		assertEquals(1.0, state.update(1.0, 30, 0L, 445, 245), 0.0);
+		assertEquals(1.0, state.update(0.5, 30, 100L, 445, 245), 0.0);
+		state.recordUnobservedDamage(10, 100, 0.5, 30, 150L);
+		assertEquals(1.0, state.update(0.7, 30, 200L, 445, 245), 0.0);
+		state.recordUnobservedDamage(10, 100, 0.7, 30, 800L);
+
+		assertEquals(0.7, state.update(0.6, 30, 801L, 445, 245), 0.0);
+	}
+
+	@Test
+	public void firstObservationStartsAtAnAlreadyDamagedActorsCurrentHealth()
+	{
+		CustomizeALotHealthBarRenderer.DamageTrailState state =
+			new CustomizeALotHealthBarRenderer.DamageTrailState();
+
+		assertEquals(15.0 / 36.0, state.update(15.0 / 36.0, 36, 100L, 445, 245), 0.0);
+		assertEquals(15.0 / 36.0, state.update(15.0 / 36.0, 36, 600L, 445, 245), 0.0);
 	}
 
 	@Test
@@ -872,14 +1125,14 @@ public class CustomizeALotHealthBarRendererTest
 			barGraphics.dispose();
 		}
 
-		Area borderArea = new Area(new RoundRectangle2D.Double(
-			x - borderThickness,
-			y - borderThickness,
-			width + borderThickness * 2,
-			height + borderThickness * 2,
-			(cornerRadius + borderThickness) * 2,
-			(cornerRadius + borderThickness) * 2));
-		borderArea.subtract(new Area(inner));
+		Area borderArea = new Area(inner);
+		borderArea.subtract(new Area(new RoundRectangle2D.Double(
+			x + borderThickness,
+			y + borderThickness,
+			width - borderThickness * 2,
+			height - borderThickness * 2,
+			Math.max(0, cornerRadius - borderThickness) * 2,
+			Math.max(0, cornerRadius - borderThickness) * 2)));
 		Graphics2D borderGraphics = image.createGraphics();
 		try
 		{

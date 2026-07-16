@@ -21,6 +21,19 @@ import org.junit.Test;
 public class CustomizeALotOverheadChatRendererTest
 {
 	@Test
+	public void formattingIsRemovedWithoutLosingEscapedAngleBrackets()
+	{
+		assertEquals("<3 > 2",
+			CustomizeALotOverheadChatRenderer.displayText("<lt>3 <gt> 2"));
+		assertEquals("<tag>",
+			CustomizeALotOverheadChatRenderer.displayText("<col=ff0000><lt>tag<gt></col>"));
+		assertEquals("<col=ff0000>",
+			CustomizeALotOverheadChatRenderer.displayText("<lt>col=ff0000<gt>"));
+		assertEquals("Café ★ & 'quotes'",
+			CustomizeALotOverheadChatRenderer.displayText("Café ★ & 'quotes'"));
+	}
+
+	@Test
 	public void capturesEveryConfiguredStyleOnceForTheFrame()
 	{
 		Color textColor = new Color(10, 20, 30, 40);
@@ -93,6 +106,76 @@ public class CustomizeALotOverheadChatRendererTest
 		assertEquals(CustomizeALotOverheadChatEffect.SHAKE, style.getFallbackEffect());
 		assertEquals(-7, style.getXOffset());
 		assertEquals(9, style.getYOffset());
+	}
+
+	@Test
+	public void relationshipColorsUseGroupIronThenFriendThenClanPrecedence()
+	{
+		Color fallback = new Color(1, 2, 3, 4);
+		Color friend = new Color(0xFFA5FF40, true);
+		Color clan = new Color(0xFF40CFFF, true);
+		Color groupIron = new Color(0xFFFF4040, true);
+		CustomizeALotConfig config = new CustomizeALotConfig()
+		{
+			@Override
+			public Color overheadChatColor()
+			{
+				return fallback;
+			}
+
+			@Override
+			public boolean overheadChatRelationshipColors()
+			{
+				return true;
+			}
+
+			@Override
+			public Color overheadChatFriendColor()
+			{
+				return friend;
+			}
+
+			@Override
+			public Color overheadChatClanColor()
+			{
+				return clan;
+			}
+
+			@Override
+			public Color overheadChatGroupIronColor()
+			{
+				return groupIron;
+			}
+		};
+		CustomizeALotOverheadChatRenderer.Style style =
+			CustomizeALotOverheadChatRenderer.captureStyle(config);
+
+		assertSame(groupIron,
+			CustomizeALotOverheadChatRenderer.relationshipColor(style, true, true, true));
+		assertSame(friend,
+			CustomizeALotOverheadChatRenderer.relationshipColor(style, false, true, true));
+		assertSame(clan,
+			CustomizeALotOverheadChatRenderer.relationshipColor(style, false, false, true));
+		assertSame(fallback,
+			CustomizeALotOverheadChatRenderer.relationshipColor(style, false, false, false));
+
+		CustomizeALotOverheadChatRenderer.Style disabled =
+			CustomizeALotOverheadChatRenderer.captureStyle(new CustomizeALotConfig()
+			{
+				@Override
+				public Color overheadChatColor()
+				{
+					return fallback;
+				}
+
+				@Override
+				public boolean overheadChatRelationshipColors()
+				{
+					return false;
+				}
+			});
+		assertSame(fallback,
+			CustomizeALotOverheadChatRenderer.relationshipColor(disabled, true, true, true));
 	}
 
 	@Test

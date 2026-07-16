@@ -1,7 +1,6 @@
 package com.customizealot;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -17,15 +16,16 @@ public class CustomizeALotActorUiConfigTest
 	};
 
 	@Test
-	public void healthBarDefaultsUseNativeStyleAndScale()
+	public void healthBarDefaultsUseRuinedHeirStyleAndScale()
 	{
 		assertTrue(config.healthBarsEnabled());
-		assertEquals(CustomizeALotHealthBarStyle.NATIVE, config.healthBarStyle());
-		assertEquals(CustomizeALotHealthScaleMode.FIXED, config.healthBarScaleMode());
+		assertEquals(CustomizeALotHealthBarStyle.SOLID, config.healthBarStyle());
+		assertEquals(CustomizeALotHealthScaleMode.THRESHOLD, config.healthBarScaleMode());
 		assertEquals(100, config.healthBarScalePercent());
 		assertEquals(100, config.healthBarScaleThreshold());
 		assertEquals(150, config.healthBarLargeScalePercent());
-		assertEquals(30.0, config.healthBarSolidWidth(), 0.0);
+		assertEquals(100, config.healthBarLargeHeightScalePercent());
+		assertEquals(50.0, config.healthBarSolidWidth(), 0.0);
 		assertEquals(5.0, config.healthBarHeight(), 0.0);
 		assertEquals(0, config.healthBarXOffset());
 		assertEquals(0, config.healthBarYOffset());
@@ -33,49 +33,53 @@ public class CustomizeALotActorUiConfigTest
 			CustomizeALotHealthBarFillDirection.LEFT_TO_RIGHT,
 			config.healthBarFillDirection());
 		assertEquals(
-			CustomizeALotHealthBarGradientCoordinates.SEGMENT,
+			CustomizeALotHealthBarGradientCoordinates.FULL_BAR,
 			config.healthBarGradientCoordinates());
 		assertEquals(
-			CustomizeALotHealthBarGradientCoordinates.SEGMENT,
+			CustomizeALotHealthBarGradientCoordinates.FULL_BAR,
 			config.healthBarFrontGradientCoordinates());
 		assertEquals(
-			CustomizeALotHealthBarGradientCoordinates.SEGMENT,
+			CustomizeALotHealthBarGradientCoordinates.FULL_BAR,
 			config.healthBarBackGradientCoordinates());
-		assertEquals(CustomizeALotHealthBarGradient.SOLID, config.healthBarFrontGradient());
-		assertEquals(new Color(45, 190, 88), config.healthBarFrontColor());
-		assertEquals(new Color(34, 158, 72), config.healthBarFrontSecondaryColor());
-		assertEquals(new Color(118, 190, 60), config.healthBarPoisonedFrontColor());
-		assertEquals(CustomizeALotHealthBarGradient.SOLID, config.healthBarBackGradient());
-		assertEquals(new Color(184, 60, 60), config.healthBarBackColor());
-		assertEquals(new Color(151, 45, 45), config.healthBarBackSecondaryColor());
+		assertEquals(CustomizeALotHealthBarGradient.HORIZONTAL, config.healthBarFrontGradient());
+		assertEquals(new Color(0xFF34F434, true), config.healthBarFrontColor());
+		assertEquals(new Color(0xFF18E418, true), config.healthBarFrontSecondaryColor());
+		assertEquals(new Color(132, 204, 66), config.healthBarPoisonedFrontColor());
+		assertEquals(CustomizeALotHealthBarGradient.HORIZONTAL, config.healthBarBackGradient());
+		assertEquals(new Color(0xFFC01D1D, true), config.healthBarBackColor());
+		assertEquals(new Color(0xFF901818, true), config.healthBarBackSecondaryColor());
 		assertTrue(config.healthBarDamageTrailEnabled());
-		assertEquals(new Color(245, 185, 66, 210), config.healthBarDamageTrailColor());
-		assertEquals(400, config.healthBarDamageTrailHold());
-		assertEquals(600, config.healthBarDamageTrailDrain());
-		assertFalse(config.healthBarSegmentsEnabled());
+		assertEquals(new Color(0xFFFF001F, true), config.healthBarDamageTrailColor());
+		assertEquals(445, config.healthBarDamageTrailHold());
+		assertEquals(245, config.healthBarDamageTrailDrain());
+		assertTrue(config.healthBarSegmentsEnabled());
 		assertEquals(10, config.healthBarPublicUnitsPerSegment());
 		assertEquals(
 			CustomizeALotHealthBarSegmentValueMode.EXACT_HP_WITH_PUBLIC_FALLBACK,
 			config.healthBarSegmentValueMode());
 		assertEquals(10, config.healthBarHitpointsPerSegment());
-		assertEquals(new Color(0, 0, 0, 160), config.healthBarSegmentColor());
-		assertEquals(1.0, config.healthBarSegmentThickness(), 0.0);
-		assertEquals(Color.BLACK, config.healthBarBorderColor());
-		assertEquals(1.0, config.healthBarBorderThickness(), 0.0);
-		assertEquals(0.0, config.healthBarCornerRadius(), 0.0);
+		assertEquals(new Color(0x3F000000, true), config.healthBarSegmentColor());
+		assertEquals(0.6, config.healthBarSegmentThickness(), 0.0);
+		assertEquals(new Color(25, 25, 25, 230), config.healthBarBorderColor());
+		assertEquals(0.1, config.healthBarBorderThickness(), 0.0);
+		assertEquals(0.5, config.healthBarCornerRadius(), 0.0);
 		assertEquals(CustomizeALotSpriteScalingMode.XBR, config.spriteScalingMode());
 	}
 
 	@Test
-	public void overheadChatReplacementIsVisibleByDefault()
+	public void overheadChatUsesRuinedHeirColorsByDefault()
 	{
 		assertTrue(config.overheadChatEnabled());
 		assertTrue(config.showNpcOverheadChat());
 		assertSame(FontType.BOLD, config.overheadChatFont());
-		assertEquals(Color.YELLOW, config.overheadChatColor());
+		assertEquals(new Color(0xFF, 0xFF, 0x3F, 0xFF), config.overheadChatColor());
+		assertTrue(config.overheadChatRelationshipColors());
+		assertEquals(new Color(0xFFA5FF40, true), config.overheadChatFriendColor());
+		assertEquals(new Color(0xFF40CFFF, true), config.overheadChatClanColor());
+		assertEquals(new Color(0xFFFF4040, true), config.overheadChatGroupIronColor());
 		assertEquals(CustomizeALotOverheadChatEffect.STATIC, config.overheadChatEffect());
 		assertTrue(config.overheadChatShadow());
-		assertEquals(Color.BLACK, config.overheadChatShadowColor());
+		assertEquals(new Color(0x80171717, true), config.overheadChatShadowColor());
 		assertEquals(0, config.overheadChatXOffset());
 		assertEquals(0, config.overheadChatYOffset());
 	}

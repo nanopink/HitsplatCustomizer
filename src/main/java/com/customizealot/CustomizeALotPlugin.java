@@ -49,9 +49,13 @@ import net.runelite.client.ui.overlay.OverlayManager;
 public class CustomizeALotPlugin extends Plugin
 {
 	private static final int GAME_CYCLE_MILLIS = 20;
+	private static final double CONFIG_DOUBLE_SPINNER_STEP = 0.1;
+	private static final double HEALTH_BAR_PIXEL_STEP = 1.0;
+	private static final double CONFIG_STEP_EPSILON = 1.0e-6;
 	private static final String LEGACY_TRIANGULAR_LAYOUT_MODE = "TRIANGULAR";
 	private static final String CONFIG_GROUP_MIGRATION_VERSION = "1";
 	private static final String PRESET_WORKFLOW_VERSION = "2";
+	private static final String SECTION_PRESET_VERSION = "2";
 
 	@Inject
 	private CustomizeALotConfig config;
@@ -90,6 +94,7 @@ public class CustomizeALotPlugin extends Plugin
 	private long nextSequence;
 	private volatile boolean applyingPreset;
 	private boolean migratingConfig;
+	private volatile boolean adjustingHealthBarPixelStep;
 
 	Map<Actor, CopyOnWriteArrayList<CustomizeALotHitsplat>> getHitsplats()
 	{
@@ -306,6 +311,37 @@ public class CustomizeALotPlugin extends Plugin
 			return;
 		}
 
+		Number steppedHealthBarValue = null;
+		if (isHealthBarPixelStepSetting(event.getKey()))
+		{
+			steppedHealthBarValue = steppedHealthBarPixelValue(
+				applyingPreset
+					|| adjustingHealthBarPixelStep
+					|| !CustomizeALotConfigPanelSync.openSpinnerHasValue(
+						event.getKey(),
+						event.getNewValue()),
+				event.getKey(),
+				event.getOldValue(),
+				event.getNewValue());
+		}
+		if (steppedHealthBarValue != null)
+		{
+			adjustingHealthBarPixelStep = true;
+			try
+			{
+				configManager.setConfiguration(
+					CustomizeALotConfig.GROUP,
+					event.getKey(),
+					steppedHealthBarValue);
+				CustomizeALotConfigPanelSync.refreshOpenPanelNow(
+					Collections.<String, Object>singletonMap(event.getKey(), steppedHealthBarValue));
+			}
+			finally
+			{
+				adjustingHealthBarPixelStep = false;
+			}
+		}
+
 		if (shouldSwitchToCustom(applyingPreset, event.getKey(), config.preset()))
 		{
 			queueCustomSelection();
@@ -472,6 +508,85 @@ public class CustomizeALotPlugin extends Plugin
 		return scheduledGeneration == currentGeneration
 			&& !applyingPreset
 			&& namedPresetSelected;
+	}
+
+	static Number steppedHealthBarPixelValue(
+		boolean applyingPreset,
+		String key,
+		String oldValue,
+		String newValue)
+	{
+		if (applyingPreset || key == null || oldValue == null || newValue == null)
+		{
+			return null;
+		}
+
+		if (CustomizeALotConfig.HEALTH_BAR_SOLID_WIDTH_KEY.equals(key)
+			|| CustomizeALotConfig.HEALTH_BAR_HEIGHT_KEY.equals(key))
+		{
+			double oldNumber;
+			double newNumber;
+			try
+			{
+				oldNumber = Double.parseDouble(oldValue);
+				newNumber = Double.parseDouble(newValue);
+			}
+			catch (NumberFormatException ex)
+			{
+				return null;
+			}
+			if (!Double.isFinite(oldNumber) || !Double.isFinite(newNumber))
+			{
+				return null;
+			}
+
+			double delta = newNumber - oldNumber;
+			if (Math.abs(Math.abs(delta) - CONFIG_DOUBLE_SPINNER_STEP) > CONFIG_STEP_EPSILON)
+			{
+				return null;
+			}
+			double minimum = CustomizeALotConfig.HEALTH_BAR_SOLID_WIDTH_KEY.equals(key)
+				? 10.0
+				: 2.0;
+			double maximum = CustomizeALotConfig.HEALTH_BAR_SOLID_WIDTH_KEY.equals(key)
+				? 200.0
+				: 20.0;
+			return Math.max(
+				minimum,
+				Math.min(maximum, oldNumber + Math.copySign(HEALTH_BAR_PIXEL_STEP, delta)));
+		}
+
+		if (CustomizeALotConfig.HEALTH_BAR_X_OFFSET_KEY.equals(key)
+			|| CustomizeALotConfig.HEALTH_BAR_Y_OFFSET_KEY.equals(key))
+		{
+			int oldNumber;
+			int newNumber;
+			try
+			{
+				oldNumber = Integer.parseInt(oldValue);
+				newNumber = Integer.parseInt(newValue);
+			}
+			catch (NumberFormatException ex)
+			{
+				return null;
+			}
+			int delta = newNumber - oldNumber;
+			if (Math.abs(delta) != 1)
+			{
+				return null;
+			}
+			return Math.max(-256, Math.min(256, oldNumber + Integer.signum(delta) * 2));
+		}
+
+		return null;
+	}
+
+	private static boolean isHealthBarPixelStepSetting(String key)
+	{
+		return CustomizeALotConfig.HEALTH_BAR_SOLID_WIDTH_KEY.equals(key)
+			|| CustomizeALotConfig.HEALTH_BAR_HEIGHT_KEY.equals(key)
+			|| CustomizeALotConfig.HEALTH_BAR_X_OFFSET_KEY.equals(key)
+			|| CustomizeALotConfig.HEALTH_BAR_Y_OFFSET_KEY.equals(key);
 	}
 
 	@Subscribe
@@ -648,25 +763,55 @@ public class CustomizeALotPlugin extends Plugin
 	private void migrateSectionPresetWorkflows()
 	{
 		CustomizeALotHealthBarPreset healthBarPreset = config.healthBarPreset();
+		CustomizeALotOverheadChatPreset overheadChatPreset = config.overheadChatPreset();
+		String sectionPresetVersion = configManager.getConfiguration(
+			CustomizeALotConfig.GROUP,
+			CustomizeALotConfig.SECTION_PRESET_VERSION_KEY);
+		boolean sectionPresetUpdateNeeded = !SECTION_PRESET_VERSION.equals(sectionPresetVersion);
+		if (shouldRefreshUpdatedSectionPreset(
+			sectionPresetUpdateNeeded,
+			healthBarPreset == CustomizeALotHealthBarPreset.RUINED_HEIR,
+			healthBarSettingsMatchConfig(
+				CustomizeALotHealthBarPreset.previousRuinedHeirSettings(),
+				config)
+				|| healthBarSettingsMatchConfig(
+					CustomizeALotHealthBarPreset.legacyRuinedHeirSettings(),
+					config)))
+		{
+			applyHealthBarPreset(healthBarPreset);
+		}
+		if (shouldRefreshUpdatedSectionPreset(
+			sectionPresetUpdateNeeded,
+			overheadChatPreset == CustomizeALotOverheadChatPreset.RUINED_HEIR,
+			overheadChatSettingsMatchConfig(
+				CustomizeALotOverheadChatPreset.previousRuinedHeirSettings(),
+				config)
+				|| overheadChatSettingsMatchConfig(
+					CustomizeALotOverheadChatPreset.legacyRuinedHeirSettings(),
+					config)))
+		{
+			applyOverheadChatPreset(overheadChatPreset);
+		}
+		if (sectionPresetUpdateNeeded)
+		{
+			configManager.setConfiguration(
+				CustomizeALotConfig.GROUP,
+				CustomizeALotConfig.SECTION_PRESET_VERSION_KEY,
+				SECTION_PRESET_VERSION);
+		}
+
 		if (healthBarPreset != null
 			&& healthBarPreset != CustomizeALotHealthBarPreset.CUSTOM
 			&& !healthBarPresetMatchesConfig(healthBarPreset, config))
 		{
-			configManager.setConfiguration(
-				CustomizeALotConfig.GROUP,
-				CustomizeALotConfig.HEALTH_BAR_PRESET_KEY,
-				CustomizeALotHealthBarPreset.CUSTOM.name());
+			selectCustomSectionPreset(CustomizeALotConfig.HEALTH_BAR_PRESET_KEY);
 		}
 
-		CustomizeALotOverheadChatPreset overheadChatPreset = config.overheadChatPreset();
 		if (overheadChatPreset != null
 			&& overheadChatPreset != CustomizeALotOverheadChatPreset.CUSTOM
 			&& !overheadChatPresetMatchesConfig(overheadChatPreset, config))
 		{
-			configManager.setConfiguration(
-				CustomizeALotConfig.GROUP,
-				CustomizeALotConfig.OVERHEAD_CHAT_PRESET_KEY,
-				CustomizeALotOverheadChatPreset.CUSTOM.name());
+			selectCustomSectionPreset(CustomizeALotConfig.OVERHEAD_CHAT_PRESET_KEY);
 		}
 
 		CustomizeALotHeadIconPreset headIconPreset = config.headIconPreset();
@@ -674,11 +819,26 @@ public class CustomizeALotPlugin extends Plugin
 			&& headIconPreset != CustomizeALotHeadIconPreset.CUSTOM
 			&& !headIconPresetMatchesConfig(headIconPreset, config))
 		{
-			configManager.setConfiguration(
-				CustomizeALotConfig.GROUP,
-				CustomizeALotConfig.HEAD_ICON_PRESET_KEY,
-				CustomizeALotHeadIconPreset.CUSTOM.name());
+			selectCustomSectionPreset(CustomizeALotConfig.HEAD_ICON_PRESET_KEY);
 		}
+	}
+
+	private void selectCustomSectionPreset(String presetKey)
+	{
+		configManager.setConfiguration(
+			CustomizeALotConfig.GROUP,
+			presetKey,
+			"CUSTOM");
+		CustomizeALotConfigPanelSync.refreshOpenPanel(
+			Collections.<String, Object>singletonMap(presetKey, "CUSTOM"));
+	}
+
+	static boolean shouldRefreshUpdatedSectionPreset(
+		boolean updateNeeded,
+		boolean updatedPresetSelected,
+		boolean previousSettingsMatch)
+	{
+		return updateNeeded && updatedPresetSelected && previousSettingsMatch;
 	}
 
 	private void migratePresetWorkflow()
@@ -989,17 +1149,29 @@ public class CustomizeALotPlugin extends Plugin
 		CustomizeALotHealthBarPreset preset,
 		CustomizeALotConfig config)
 	{
-		if (preset == null || config == null)
+		if (preset == null)
 		{
 			return false;
 		}
+		return healthBarSettingsMatchConfig(preset.getSettings(), config);
+	}
 
+	static boolean healthBarSettingsMatchConfig(
+		Map<String, Object> expected,
+		CustomizeALotConfig config)
+	{
+		if (expected == null || config == null)
+		{
+			return false;
+		}
 		Map<String, Object> values = new LinkedHashMap<>();
 		values.put(CustomizeALotConfig.HEALTH_BAR_STYLE_KEY, config.healthBarStyle());
 		values.put(CustomizeALotConfig.HEALTH_BAR_SCALE_MODE_KEY, config.healthBarScaleMode());
 		values.put(CustomizeALotConfig.HEALTH_BAR_SCALE_PERCENT_KEY, config.healthBarScalePercent());
 		values.put(CustomizeALotConfig.HEALTH_BAR_SCALE_THRESHOLD_KEY, config.healthBarScaleThreshold());
 		values.put(CustomizeALotConfig.HEALTH_BAR_LARGE_SCALE_PERCENT_KEY, config.healthBarLargeScalePercent());
+		values.put(CustomizeALotConfig.HEALTH_BAR_LARGE_HEIGHT_SCALE_PERCENT_KEY,
+			config.healthBarLargeHeightScalePercent());
 		values.put(CustomizeALotConfig.HEALTH_BAR_SOLID_WIDTH_KEY, config.healthBarSolidWidth());
 		values.put(CustomizeALotConfig.HEALTH_BAR_HEIGHT_KEY, config.healthBarHeight());
 		values.put(CustomizeALotConfig.HEALTH_BAR_X_OFFSET_KEY, config.healthBarXOffset());
@@ -1043,29 +1215,47 @@ public class CustomizeALotPlugin extends Plugin
 			config.healthBarBorderThickness());
 		values.put(CustomizeALotConfig.HEALTH_BAR_CORNER_RADIUS_KEY,
 			config.healthBarCornerRadius());
-		return presetSettingsMatch(preset.getSettings(), values);
+		return presetSettingsMatch(expected, values);
 	}
 
 	static boolean overheadChatPresetMatchesConfig(
 		CustomizeALotOverheadChatPreset preset,
 		CustomizeALotConfig config)
 	{
-		if (preset == null || config == null)
+		if (preset == null)
 		{
 			return false;
 		}
+		return overheadChatSettingsMatchConfig(preset.getSettings(), config);
+	}
 
+	static boolean overheadChatSettingsMatchConfig(
+		Map<String, Object> expected,
+		CustomizeALotConfig config)
+	{
+		if (expected == null || config == null)
+		{
+			return false;
+		}
 		Map<String, Object> values = new LinkedHashMap<>();
 		values.put(CustomizeALotConfig.SHOW_NPC_OVERHEAD_CHAT_KEY, config.showNpcOverheadChat());
 		values.put(CustomizeALotConfig.OVERHEAD_CHAT_FONT_KEY, config.overheadChatFont());
 		values.put(CustomizeALotConfig.OVERHEAD_CHAT_COLOR_KEY, config.overheadChatColor());
+		values.put(CustomizeALotConfig.OVERHEAD_CHAT_RELATIONSHIP_COLORS_KEY,
+			config.overheadChatRelationshipColors());
+		values.put(CustomizeALotConfig.OVERHEAD_CHAT_FRIEND_COLOR_KEY,
+			config.overheadChatFriendColor());
+		values.put(CustomizeALotConfig.OVERHEAD_CHAT_CLAN_COLOR_KEY,
+			config.overheadChatClanColor());
+		values.put(CustomizeALotConfig.OVERHEAD_CHAT_GROUP_IRON_COLOR_KEY,
+			config.overheadChatGroupIronColor());
 		values.put(CustomizeALotConfig.OVERHEAD_CHAT_EFFECT_KEY, config.overheadChatEffect());
 		values.put(CustomizeALotConfig.OVERHEAD_CHAT_SHADOW_KEY, config.overheadChatShadow());
 		values.put(CustomizeALotConfig.OVERHEAD_CHAT_SHADOW_COLOR_KEY,
 			config.overheadChatShadowColor());
 		values.put(CustomizeALotConfig.OVERHEAD_CHAT_X_OFFSET_KEY, config.overheadChatXOffset());
 		values.put(CustomizeALotConfig.OVERHEAD_CHAT_Y_OFFSET_KEY, config.overheadChatYOffset());
-		return presetSettingsMatch(preset.getSettings(), values);
+		return presetSettingsMatch(expected, values);
 	}
 
 	static boolean headIconPresetMatchesConfig(

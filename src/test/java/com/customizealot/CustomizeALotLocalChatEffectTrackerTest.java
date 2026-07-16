@@ -376,6 +376,25 @@ public class CustomizeALotLocalChatEffectTrackerTest
 	}
 
 	@Test
+	public void pairedLiteralBracketsStillCorrelateWithLocalEffects()
+	{
+		CustomizeALotLocalChatEffectTracker tracker =
+			new CustomizeALotLocalChatEffectTracker();
+		Object local = new Object();
+
+		tracker.recordOutgoing("wave:<hello>", 0, false, 100);
+		tracker.recordOverhead(local, local, "<lt>hello<gt>", 101);
+
+		assertEquals(
+			CustomizeALotOverheadChatEffect.WAVE,
+			tracker.effectFor(
+				local,
+				"<lt>hello<gt>",
+				CustomizeALotOverheadChatEffect.STATIC,
+				101));
+	}
+
+	@Test
 	public void invalidOrMissingEffectDoesNotCreateAnOverride()
 	{
 		assertNull(CustomizeALotLocalChatEffectTracker.parseInput("red:hello").getEffect());

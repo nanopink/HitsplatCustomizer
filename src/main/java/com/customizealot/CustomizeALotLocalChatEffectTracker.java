@@ -309,13 +309,13 @@ final class CustomizeALotLocalChatEffectTracker
 		}
 
 		List<String> correlationMessages = new ArrayList<>(2);
-		addNormalized(correlationMessages, remaining);
+		addOutgoingNormalized(correlationMessages, remaining);
 		if (effectWasFirst && trailingColorPrefix != null)
 		{
 			// The game traditionally requires color before effect. If it accepts
 			// the effect first but leaves the following color token as text, this
 			// alternate still correlates only the exact outgoing message.
-			addNormalized(correlationMessages, trailingColorPrefix + ':' + remaining);
+			addOutgoingNormalized(correlationMessages, trailingColorPrefix + ':' + remaining);
 		}
 		return new ParsedInput(
 			effect,
@@ -599,9 +599,9 @@ final class CustomizeALotLocalChatEffectTracker
 			.toLowerCase(Locale.ROOT);
 	}
 
-	private static void addNormalized(List<String> messages, String message)
+	private static void addOutgoingNormalized(List<String> messages, String message)
 	{
-		String normalized = normalizeMessage(message);
+		String normalized = normalizeMessage(Text.escapeJagex(message == null ? "" : message));
 		if (!normalized.isEmpty() && !messages.contains(normalized))
 		{
 			messages.add(normalized);

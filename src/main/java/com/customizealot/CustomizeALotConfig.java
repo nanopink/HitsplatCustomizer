@@ -23,6 +23,7 @@ public interface CustomizeALotConfig extends Config
 	String LEGACY_Y_SPACING_KEY = "ySpacing";
 	String PRESET_KEY = "preset";
 	String PRESET_WORKFLOW_VERSION_KEY = "presetWorkflowVersion";
+	String SECTION_PRESET_VERSION_KEY = "sectionPresetVersion";
 	String DISABLE_ENEMY_HITSPLATS_KEY = "disableEnemyHitsplats";
 	String DISABLE_ALLY_HITSPLATS_KEY = "disableAllyHitsplats";
 	String DISABLE_MY_HITSPLATS_KEY = "disableMyHitsplats";
@@ -60,6 +61,7 @@ public interface CustomizeALotConfig extends Config
 	String HEALTH_BAR_SCALE_PERCENT_KEY = "healthBarScalePercent";
 	String HEALTH_BAR_SCALE_THRESHOLD_KEY = "healthBarScaleThreshold";
 	String HEALTH_BAR_LARGE_SCALE_PERCENT_KEY = "healthBarLargeScalePercent";
+	String HEALTH_BAR_LARGE_HEIGHT_SCALE_PERCENT_KEY = "healthBarLargeHeightScalePercent";
 	String HEALTH_BAR_SOLID_WIDTH_KEY = "healthBarSolidWidth";
 	String HEALTH_BAR_HEIGHT_KEY = "healthBarHeight";
 	String HEALTH_BAR_X_OFFSET_KEY = "healthBarXOffset";
@@ -95,6 +97,10 @@ public interface CustomizeALotConfig extends Config
 	String LEGACY_OVERHEAD_CHAT_FONT_SIZE_KEY = "overheadChatFontSize";
 	String OVERHEAD_CHAT_FONT_KEY = "overheadChatFont";
 	String OVERHEAD_CHAT_COLOR_KEY = "overheadChatColor";
+	String OVERHEAD_CHAT_RELATIONSHIP_COLORS_KEY = "overheadChatRelationshipColors";
+	String OVERHEAD_CHAT_FRIEND_COLOR_KEY = "overheadChatFriendColor";
+	String OVERHEAD_CHAT_CLAN_COLOR_KEY = "overheadChatClanColor";
+	String OVERHEAD_CHAT_GROUP_IRON_COLOR_KEY = "overheadChatGroupIronColor";
 	String OVERHEAD_CHAT_EFFECT_KEY = "overheadChatEffect";
 	String OVERHEAD_CHAT_SHADOW_KEY = "overheadChatShadow";
 	String OVERHEAD_CHAT_SHADOW_COLOR_KEY = "overheadChatShadowColor";
@@ -602,19 +608,19 @@ public interface CustomizeALotConfig extends Config
 	)
 	default CustomizeALotHealthBarStyle healthBarStyle()
 	{
-		return CustomizeALotHealthBarStyle.NATIVE;
+		return CustomizeALotHealthBarStyle.SOLID;
 	}
 
 	@ConfigItem(
 		keyName = HEALTH_BAR_SCALE_MODE_KEY,
 		name = "Scale mode",
-		description = "Controls an extra size multiplier. Fixed always uses Scale; Threshold switches to Large scale at the boss scale threshold; Dynamic interpolates from public scale 30 to that threshold. RuneScape artwork can still have different base widths, and public health scale is not actual maximum HP.",
+		description = "Controls boss sizing. Fixed uses Scale for both dimensions; Threshold switches to the boss width and height scales at the configured threshold; Dynamic interpolates each dimension independently. Public health scale is not actual maximum HP.",
 		section = HEALTH_BARS_SECTION,
 		position = 2
 	)
 	default CustomizeALotHealthScaleMode healthBarScaleMode()
 	{
-		return CustomizeALotHealthScaleMode.FIXED;
+		return CustomizeALotHealthScaleMode.THRESHOLD;
 	}
 
 	@ConfigItem(
@@ -637,7 +643,7 @@ public interface CustomizeALotConfig extends Config
 	@ConfigItem(
 		keyName = HEALTH_BAR_SCALE_THRESHOLD_KEY,
 		name = "Boss scale threshold",
-		description = "Boss-like public actor health scale that activates Large scale in Threshold mode or reaches it in Dynamic mode. This is not actual maximum HP.",
+		description = "Public actor health scale that activates the boss width and height scales in Threshold mode or reaches them in Dynamic mode. This is not actual maximum HP.",
 		section = HEALTH_BARS_SECTION,
 		position = 4
 	)
@@ -652,8 +658,8 @@ public interface CustomizeALotConfig extends Config
 
 	@ConfigItem(
 		keyName = HEALTH_BAR_LARGE_SCALE_PERCENT_KEY,
-		name = "Large scale",
-		description = "Health-bar size multiplier used at or above the configured public health scale threshold.",
+		name = "Boss width scale",
+		description = "Health-bar width multiplier used at or above the configured public health scale threshold.",
 		section = HEALTH_BARS_SECTION,
 		position = 5
 	)
@@ -668,11 +674,28 @@ public interface CustomizeALotConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = HEALTH_BAR_SOLID_WIDTH_KEY,
-		name = "Width",
-		description = "Width of the custom health bar in pixels. Decimal values allow sub-pixel sizing.",
+		keyName = HEALTH_BAR_LARGE_HEIGHT_SCALE_PERCENT_KEY,
+		name = "Boss height scale",
+		description = "Health-bar height multiplier used at or above the configured public health scale threshold.",
 		section = HEALTH_BARS_SECTION,
 		position = 6
+	)
+	@Units(Units.PERCENT)
+	@Range(
+		min = 50,
+		max = 200
+	)
+	default int healthBarLargeHeightScalePercent()
+	{
+		return 100;
+	}
+
+	@ConfigItem(
+		keyName = HEALTH_BAR_SOLID_WIDTH_KEY,
+		name = "Width",
+		description = "Width of the custom health bar in pixels. Adjacent spinner changes advance by 1 pixel while the plugin is enabled.",
+		section = HEALTH_BARS_SECTION,
+		position = 7
 	)
 	@Range(
 		min = 10,
@@ -680,15 +703,15 @@ public interface CustomizeALotConfig extends Config
 	)
 	default double healthBarSolidWidth()
 	{
-		return 30.0;
+		return 50.0;
 	}
 
 	@ConfigItem(
 		keyName = HEALTH_BAR_HEIGHT_KEY,
 		name = "Height",
-		description = "Health-bar height in pixels. Decimal values affect Custom bars; RuneScape sprite bars use the nearest whole pixel.",
+		description = "Health-bar height in pixels. Adjacent spinner changes advance by 1 pixel while the plugin is enabled; RuneScape sprite bars use the nearest whole pixel.",
 		section = HEALTH_BARS_SECTION,
-		position = 7
+		position = 8
 	)
 	@Range(
 		min = 2,
@@ -702,9 +725,9 @@ public interface CustomizeALotConfig extends Config
 	@ConfigItem(
 		keyName = HEALTH_BAR_X_OFFSET_KEY,
 		name = "X offset",
-		description = "Horizontal health-bar offset in pixels.",
+		description = "Horizontal health-bar offset in pixels. Adjacent spinner changes advance by 2 pixels while the plugin is enabled.",
 		section = HEALTH_BARS_SECTION,
-		position = 8
+		position = 9
 	)
 	@Range(
 		min = -256,
@@ -719,9 +742,9 @@ public interface CustomizeALotConfig extends Config
 	@ConfigItem(
 		keyName = HEALTH_BAR_Y_OFFSET_KEY,
 		name = "Y offset",
-		description = "Vertical health-bar offset in pixels. Positive values move it upward.",
+		description = "Vertical health-bar offset in pixels. Adjacent spinner changes advance by 2 pixels while the plugin is enabled. Positive values move it upward.",
 		section = HEALTH_BARS_SECTION,
-		position = 9
+		position = 10
 	)
 	@Range(
 		min = -256,
@@ -738,7 +761,7 @@ public interface CustomizeALotConfig extends Config
 		name = "Fill direction",
 		description = "Direction in which the filled portion of a custom health bar grows.",
 		section = HEALTH_BARS_SECTION,
-		position = 10
+		position = 11
 	)
 	default CustomizeALotHealthBarFillDirection healthBarFillDirection()
 	{
@@ -750,12 +773,12 @@ public interface CustomizeALotConfig extends Config
 		name = "Legacy gradient coordinates",
 		description = "Compatibility value used by saved configurations from before front and back gradient coordinates were separated.",
 		section = HEALTH_BARS_SECTION,
-		position = 11,
+		position = 12,
 		hidden = true
 	)
 	default CustomizeALotHealthBarGradientCoordinates healthBarGradientCoordinates()
 	{
-		return CustomizeALotHealthBarGradientCoordinates.SEGMENT;
+		return CustomizeALotHealthBarGradientCoordinates.FULL_BAR;
 	}
 
 	@ConfigItem(
@@ -763,7 +786,7 @@ public interface CustomizeALotConfig extends Config
 		name = "Front coordinates",
 		description = "Relative restarts the front horizontal or vertical blend inside filled health. Absolute anchors it to the full bar so its colors stay fixed as health changes.",
 		section = HEALTH_BARS_SECTION,
-		position = 11
+		position = 12
 	)
 	default CustomizeALotHealthBarGradientCoordinates healthBarFrontGradientCoordinates()
 	{
@@ -775,11 +798,11 @@ public interface CustomizeALotConfig extends Config
 		name = "Front gradient",
 		description = "Solid uses Front color. Horizontal and Vertical blend toward Front second color. Health based blends from the second color at empty health to the primary color at full health.",
 		section = HEALTH_BARS_SECTION,
-		position = 12
+		position = 13
 	)
 	default CustomizeALotHealthBarGradient healthBarFrontGradient()
 	{
-		return CustomizeALotHealthBarGradient.SOLID;
+		return CustomizeALotHealthBarGradient.HORIZONTAL;
 	}
 
 	@ConfigItem(
@@ -787,12 +810,12 @@ public interface CustomizeALotConfig extends Config
 		name = "Front color",
 		description = "Primary RGBA color for the filled portion of a custom health bar.",
 		section = HEALTH_BARS_SECTION,
-		position = 13
+		position = 14
 	)
 	@Alpha
 	default Color healthBarFrontColor()
 	{
-		return new Color(45, 190, 88);
+		return new Color(0xFF34F434, true);
 	}
 
 	@ConfigItem(
@@ -800,12 +823,12 @@ public interface CustomizeALotConfig extends Config
 		name = "Front second color",
 		description = "Secondary RGBA color used by non-solid front gradients.",
 		section = HEALTH_BARS_SECTION,
-		position = 14
+		position = 15
 	)
 	@Alpha
 	default Color healthBarFrontSecondaryColor()
 	{
-		return new Color(34, 158, 72);
+		return new Color(0xFF18E418, true);
 	}
 
 	@ConfigItem(
@@ -813,12 +836,12 @@ public interface CustomizeALotConfig extends Config
 		name = "Poisoned front color",
 		description = "Primary RGBA front color used for your local player's Custom health bar while poisoned or envenomed.",
 		section = HEALTH_BARS_SECTION,
-		position = 15
+		position = 16
 	)
 	@Alpha
 	default Color healthBarPoisonedFrontColor()
 	{
-		return new Color(118, 190, 60);
+		return new Color(132, 204, 66);
 	}
 
 	@ConfigItem(
@@ -826,7 +849,7 @@ public interface CustomizeALotConfig extends Config
 		name = "Back coordinates",
 		description = "Relative restarts the back horizontal or vertical blend inside missing health. Absolute anchors it to the full bar so its colors stay fixed as health changes.",
 		section = HEALTH_BARS_SECTION,
-		position = 16
+		position = 17
 	)
 	default CustomizeALotHealthBarGradientCoordinates healthBarBackGradientCoordinates()
 	{
@@ -838,11 +861,11 @@ public interface CustomizeALotConfig extends Config
 		name = "Back gradient",
 		description = "Solid uses Back color. Horizontal and Vertical blend toward Back second color. Health based blends from the second color at empty health to the primary color at full health.",
 		section = HEALTH_BARS_SECTION,
-		position = 17
+		position = 18
 	)
 	default CustomizeALotHealthBarGradient healthBarBackGradient()
 	{
-		return CustomizeALotHealthBarGradient.SOLID;
+		return CustomizeALotHealthBarGradient.HORIZONTAL;
 	}
 
 	@ConfigItem(
@@ -850,12 +873,12 @@ public interface CustomizeALotConfig extends Config
 		name = "Back color",
 		description = "Primary RGBA color for the missing-health portion of a custom health bar.",
 		section = HEALTH_BARS_SECTION,
-		position = 18
+		position = 19
 	)
 	@Alpha
 	default Color healthBarBackColor()
 	{
-		return new Color(184, 60, 60);
+		return new Color(0xFFC01D1D, true);
 	}
 
 	@ConfigItem(
@@ -863,12 +886,12 @@ public interface CustomizeALotConfig extends Config
 		name = "Back second color",
 		description = "Secondary RGBA color used by non-solid back gradients.",
 		section = HEALTH_BARS_SECTION,
-		position = 19
+		position = 20
 	)
 	@Alpha
 	default Color healthBarBackSecondaryColor()
 	{
-		return new Color(151, 45, 45);
+		return new Color(0xFF901818, true);
 	}
 
 	@ConfigItem(
@@ -876,7 +899,7 @@ public interface CustomizeALotConfig extends Config
 		name = "Damage trail",
 		description = "Hold recently lost health, then animate the trail down to the current Custom health-bar value. Healing updates immediately.",
 		section = HEALTH_BARS_SECTION,
-		position = 20
+		position = 21
 	)
 	default boolean healthBarDamageTrailEnabled()
 	{
@@ -888,35 +911,18 @@ public interface CustomizeALotConfig extends Config
 		name = "Damage trail color",
 		description = "RGBA color for recently lost health in a Custom health bar.",
 		section = HEALTH_BARS_SECTION,
-		position = 21
+		position = 22
 	)
 	@Alpha
 	default Color healthBarDamageTrailColor()
 	{
-		return new Color(245, 185, 66, 210);
+		return new Color(0xFFFF001F, true);
 	}
 
 	@ConfigItem(
 		keyName = HEALTH_BAR_DAMAGE_TRAIL_HOLD_KEY,
 		name = "Damage trail hold",
 		description = "How long recently lost health remains stationary before draining.",
-		section = HEALTH_BARS_SECTION,
-		position = 22
-	)
-	@Units(Units.MILLISECONDS)
-	@Range(
-		min = 0,
-		max = 5000
-	)
-	default int healthBarDamageTrailHold()
-	{
-		return 400;
-	}
-
-	@ConfigItem(
-		keyName = HEALTH_BAR_DAMAGE_TRAIL_DRAIN_KEY,
-		name = "Damage trail drain",
-		description = "How long the held damage trail takes to animate down to current health.",
 		section = HEALTH_BARS_SECTION,
 		position = 23
 	)
@@ -925,9 +931,26 @@ public interface CustomizeALotConfig extends Config
 		min = 0,
 		max = 5000
 	)
+	default int healthBarDamageTrailHold()
+	{
+		return 445;
+	}
+
+	@ConfigItem(
+		keyName = HEALTH_BAR_DAMAGE_TRAIL_DRAIN_KEY,
+		name = "Damage trail drain",
+		description = "How long the held damage trail takes to animate down to current health.",
+		section = HEALTH_BARS_SECTION,
+		position = 24
+	)
+	@Units(Units.MILLISECONDS)
+	@Range(
+		min = 0,
+		max = 5000
+	)
 	default int healthBarDamageTrailDrain()
 	{
-		return 600;
+		return 245;
 	}
 
 	@ConfigItem(
@@ -935,11 +958,11 @@ public interface CustomizeALotConfig extends Config
 		name = "HP segments",
 		description = "Draw League-style dividers every configured hitpoints. Exact values are available for your player and NPCs covered by RuneLite's NPC stats; the selected mode controls unknown actors.",
 		section = HEALTH_BARS_SECTION,
-		position = 24
+		position = 25
 	)
 	default boolean healthBarSegmentsEnabled()
 	{
-		return false;
+		return true;
 	}
 
 	@ConfigItem(
@@ -947,7 +970,7 @@ public interface CustomizeALotConfig extends Config
 		name = "Legacy public units per segment",
 		description = "Compatibility value used by saved configurations from before HP-based segments.",
 		section = HEALTH_BARS_SECTION,
-		position = 25,
+		position = 26,
 		hidden = true
 	)
 	@Range(
@@ -964,7 +987,7 @@ public interface CustomizeALotConfig extends Config
 		name = "Segment HP source",
 		description = "Exact HP uses your real Hitpoints level or RuneLite NPC stats. Public fallback keeps segments visible for actors whose maximum HP is unknown, but those fallback units are normalized public health-scale units rather than hitpoints.",
 		section = HEALTH_BARS_SECTION,
-		position = 25
+		position = 26
 	)
 	default CustomizeALotHealthBarSegmentValueMode healthBarSegmentValueMode()
 	{
@@ -976,7 +999,7 @@ public interface CustomizeALotConfig extends Config
 		name = "HP per segment",
 		description = "Draw one divider for each multiple of this many hitpoints. In Public scale mode or when using its fallback, the same number is measured in normalized public health-scale units.",
 		section = HEALTH_BARS_SECTION,
-		position = 26
+		position = 27
 	)
 	@Range(
 		min = 1,
@@ -992,12 +1015,12 @@ public interface CustomizeALotConfig extends Config
 		name = "Segment color",
 		description = "RGBA color for health-segment dividers.",
 		section = HEALTH_BARS_SECTION,
-		position = 27
+		position = 28
 	)
 	@Alpha
 	default Color healthBarSegmentColor()
 	{
-		return new Color(0, 0, 0, 160);
+		return new Color(0x3F000000, true);
 	}
 
 	@ConfigItem(
@@ -1005,7 +1028,7 @@ public interface CustomizeALotConfig extends Config
 		name = "Segment thickness",
 		description = "Thickness of Custom health-bar segment dividers in pixels. Decimal values allow sub-pixel lines.",
 		section = HEALTH_BARS_SECTION,
-		position = 28
+		position = 29
 	)
 	@Range(
 		min = 0,
@@ -1013,7 +1036,7 @@ public interface CustomizeALotConfig extends Config
 	)
 	default double healthBarSegmentThickness()
 	{
-		return 1.0;
+		return 0.6;
 	}
 
 	@ConfigItem(
@@ -1021,12 +1044,12 @@ public interface CustomizeALotConfig extends Config
 		name = "Border color",
 		description = "RGBA color for the border around a custom health bar.",
 		section = HEALTH_BARS_SECTION,
-		position = 29
+		position = 30
 	)
 	@Alpha
 	default Color healthBarBorderColor()
 	{
-		return Color.BLACK;
+		return new Color(25, 25, 25, 230);
 	}
 
 	@ConfigItem(
@@ -1034,7 +1057,7 @@ public interface CustomizeALotConfig extends Config
 		name = "Border thickness",
 		description = "Custom health-bar border thickness in pixels. Decimal values allow sub-pixel borders; set to 0 for no border.",
 		section = HEALTH_BARS_SECTION,
-		position = 30
+		position = 31
 	)
 	@Range(
 		min = 0,
@@ -1042,7 +1065,7 @@ public interface CustomizeALotConfig extends Config
 	)
 	default double healthBarBorderThickness()
 	{
-		return 1.0;
+		return 0.1;
 	}
 
 	@ConfigItem(
@@ -1050,7 +1073,7 @@ public interface CustomizeALotConfig extends Config
 		name = "Corner radius",
 		description = "Antialiased Custom health-bar corner radius in pixels, limited by half the bar's smaller dimension. Decimal values allow sub-pixel curves.",
 		section = HEALTH_BARS_SECTION,
-		position = 31
+		position = 32
 	)
 	@Range(
 		min = 0,
@@ -1058,7 +1081,7 @@ public interface CustomizeALotConfig extends Config
 	)
 	default double healthBarCornerRadius()
 	{
-		return 0.0;
+		return 0.5;
 	}
 
 	@ConfigItem(
@@ -1120,7 +1143,58 @@ public interface CustomizeALotConfig extends Config
 	@Alpha
 	default Color overheadChatColor()
 	{
-		return Color.YELLOW;
+		return new Color(0xFF, 0xFF, 0x3F, 0xFF);
+	}
+
+	@ConfigItem(
+		keyName = OVERHEAD_CHAT_RELATIONSHIP_COLORS_KEY,
+		name = "Relationship colors",
+		description = "Use separate default overhead-chat colors for group iron teammates, friends, and clan members. Your own typed color prefixes still take priority.",
+		section = OVERHEAD_CHAT_SECTION,
+		position = 4
+	)
+	default boolean overheadChatRelationshipColors()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = OVERHEAD_CHAT_FRIEND_COLOR_KEY,
+		name = "Friend color",
+		description = "Default RGBA overhead-chat color for players on your friends list when relationship colors are enabled.",
+		section = OVERHEAD_CHAT_SECTION,
+		position = 5
+	)
+	@Alpha
+	default Color overheadChatFriendColor()
+	{
+		return new Color(0xFFA5FF40, true);
+	}
+
+	@ConfigItem(
+		keyName = OVERHEAD_CHAT_CLAN_COLOR_KEY,
+		name = "Clan color",
+		description = "Default RGBA overhead-chat color for members of your clan when relationship colors are enabled.",
+		section = OVERHEAD_CHAT_SECTION,
+		position = 6
+	)
+	@Alpha
+	default Color overheadChatClanColor()
+	{
+		return new Color(0xFF40CFFF, true);
+	}
+
+	@ConfigItem(
+		keyName = OVERHEAD_CHAT_GROUP_IRON_COLOR_KEY,
+		name = "Group iron color",
+		description = "Default RGBA overhead-chat color for members of your group iron team when relationship colors are enabled.",
+		section = OVERHEAD_CHAT_SECTION,
+		position = 7
+	)
+	@Alpha
+	default Color overheadChatGroupIronColor()
+	{
+		return new Color(0xFFFF4040, true);
 	}
 
 	@ConfigItem(
@@ -1128,7 +1202,7 @@ public interface CustomizeALotConfig extends Config
 		name = "Default Text Effect",
 		description = "Fallback animation for replacement overhead chat. Static draws unanimated text. A matching effect prefix typed by you overrides it for that local message; other senders' native effects cannot be inherited.",
 		section = OVERHEAD_CHAT_SECTION,
-		position = 4
+		position = 8
 	)
 	default CustomizeALotOverheadChatEffect overheadChatEffect()
 	{
@@ -1140,7 +1214,7 @@ public interface CustomizeALotConfig extends Config
 		name = "Text shadow",
 		description = "Draw a configurable shadow behind replacement overhead chat.",
 		section = OVERHEAD_CHAT_SECTION,
-		position = 5
+		position = 9
 	)
 	default boolean overheadChatShadow()
 	{
@@ -1152,12 +1226,12 @@ public interface CustomizeALotConfig extends Config
 		name = "Shadow color",
 		description = "RGBA color used for the replacement overhead-chat shadow.",
 		section = OVERHEAD_CHAT_SECTION,
-		position = 6
+		position = 10
 	)
 	@Alpha
 	default Color overheadChatShadowColor()
 	{
-		return Color.BLACK;
+		return new Color(0x80171717, true);
 	}
 
 	@ConfigItem(
@@ -1165,7 +1239,7 @@ public interface CustomizeALotConfig extends Config
 		name = "X offset",
 		description = "Horizontal overhead-chat offset in whole pixels.",
 		section = OVERHEAD_CHAT_SECTION,
-		position = 7
+		position = 11
 	)
 	@Range(
 		min = -256,
@@ -1182,7 +1256,7 @@ public interface CustomizeALotConfig extends Config
 		name = "Y offset",
 		description = "Vertical overhead-chat offset in whole pixels. Positive values move it upward.",
 		section = OVERHEAD_CHAT_SECTION,
-		position = 8
+		position = 12
 	)
 	@Range(
 		min = -256,

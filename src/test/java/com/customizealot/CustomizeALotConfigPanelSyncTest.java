@@ -36,6 +36,10 @@ public class CustomizeALotConfigPanelSyncTest
 
 		JSpinner healthScale = intSpinner(100);
 		row(healthBars, "Scale", healthScale);
+		JSpinner bossWidthScale = intSpinner(150);
+		row(healthBars, "Boss width scale", bossWidthScale);
+		JSpinner bossHeightScale = intSpinner(100);
+		row(healthBars, "Boss height scale", bossHeightScale);
 		JSpinner healthWidth = doubleSpinner(30.0);
 		row(healthBars, "Width", healthWidth);
 		JCheckBox segments = new JCheckBox();
@@ -53,22 +57,38 @@ public class CustomizeALotConfigPanelSyncTest
 		Map<String, Object> values = new LinkedHashMap<>();
 		values.put(CustomizeALotConfig.PRESET_KEY, "CUSTOM");
 		values.put(CustomizeALotConfig.HEALTH_BAR_SCALE_PERCENT_KEY, 150);
+		values.put(CustomizeALotConfig.HEALTH_BAR_LARGE_SCALE_PERCENT_KEY, 175);
+		values.put(CustomizeALotConfig.HEALTH_BAR_LARGE_HEIGHT_SCALE_PERCENT_KEY, 125);
 		values.put(CustomizeALotConfig.HEALTH_BAR_SOLID_WIDTH_KEY, 49.0);
 		values.put(CustomizeALotConfig.HEALTH_BAR_SEGMENTS_ENABLED_KEY, true);
 		values.put(CustomizeALotConfig.HEALTH_BAR_FRONT_GRADIENT_KEY,
 			CustomizeALotHealthBarGradient.HORIZONTAL);
 		values.put(CustomizeALotConfig.HEALTH_BAR_FRONT_COLOR_KEY, updatedColor);
 
-		assertEquals(6, CustomizeALotConfigPanelSync.synchronize(root, values));
+		assertEquals(8, CustomizeALotConfigPanelSync.synchronize(root, values));
 		assertSame(CustomizeALotPreset.CUSTOM, hitsplatPreset.getSelectedItem());
 		assertEquals(100, hitsplatScale.getValue());
 		assertEquals(150, healthScale.getValue());
+		assertEquals(175, bossWidthScale.getValue());
+		assertEquals(125, bossHeightScale.getValue());
 		assertEquals(49.0, (Double) healthWidth.getValue(), 0.0);
 		assertTrue(segments.isSelected());
 		assertSame(CustomizeALotHealthBarGradient.HORIZONTAL, gradient.getSelectedItem());
 		assertEquals(updatedColor, frontColor.getColor());
 		assertEquals("#4E0C2238", frontColor.getText());
 		assertEquals(100, headIconScale.getValue());
+		assertTrue(CustomizeALotConfigPanelSync.spinnerHasValue(
+			root,
+			CustomizeALotConfig.HEALTH_BAR_SOLID_WIDTH_KEY,
+			"49.0"));
+		assertFalse(CustomizeALotConfigPanelSync.spinnerHasValue(
+			root,
+			CustomizeALotConfig.HEALTH_BAR_SOLID_WIDTH_KEY,
+			"50.0"));
+		assertFalse(CustomizeALotConfigPanelSync.spinnerHasValue(
+			root,
+			CustomizeALotConfig.HEALTH_BAR_FRONT_COLOR_KEY,
+			"49.0"));
 	}
 
 	@Test

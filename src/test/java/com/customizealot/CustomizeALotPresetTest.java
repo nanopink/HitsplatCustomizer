@@ -9,9 +9,9 @@ import org.junit.Test;
 public class CustomizeALotPresetTest
 {
 	@Test
-	public void defaultPresetIsRuneScape()
+	public void defaultPresetIsRuinedHeirsOneTick()
 	{
-		assertEquals(CustomizeALotPreset.RUNESCAPE, CustomizeALotPreset.DEFAULT);
+		assertEquals(CustomizeALotPreset.RUINED_HEIRS_ONE_TICK, CustomizeALotPreset.DEFAULT);
 	}
 
 	@Test

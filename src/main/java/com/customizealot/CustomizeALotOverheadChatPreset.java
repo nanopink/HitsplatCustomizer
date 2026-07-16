@@ -12,7 +12,7 @@ public enum CustomizeALotOverheadChatPreset
 	RUNESCAPE("RuneScape", runeScapeSettings()),
 	RUINED_HEIR("Ruined Heir", ruinedHeirSettings());
 
-	static final CustomizeALotOverheadChatPreset DEFAULT = RUNESCAPE;
+	static final CustomizeALotOverheadChatPreset DEFAULT = RUINED_HEIR;
 
 	private final String displayName;
 	private final Map<String, Object> settings;
@@ -34,6 +34,10 @@ public enum CustomizeALotOverheadChatPreset
 		values.put(CustomizeALotConfig.SHOW_NPC_OVERHEAD_CHAT_KEY, true);
 		values.put(CustomizeALotConfig.OVERHEAD_CHAT_FONT_KEY, FontType.BOLD);
 		values.put(CustomizeALotConfig.OVERHEAD_CHAT_COLOR_KEY, Color.YELLOW);
+		values.put(CustomizeALotConfig.OVERHEAD_CHAT_RELATIONSHIP_COLORS_KEY, false);
+		values.put(CustomizeALotConfig.OVERHEAD_CHAT_FRIEND_COLOR_KEY, Color.YELLOW);
+		values.put(CustomizeALotConfig.OVERHEAD_CHAT_CLAN_COLOR_KEY, Color.YELLOW);
+		values.put(CustomizeALotConfig.OVERHEAD_CHAT_GROUP_IRON_COLOR_KEY, Color.YELLOW);
 		values.put(CustomizeALotConfig.OVERHEAD_CHAT_EFFECT_KEY,
 			CustomizeALotOverheadChatEffect.STATIC);
 		values.put(CustomizeALotConfig.OVERHEAD_CHAT_SHADOW_KEY, true);
@@ -44,6 +48,27 @@ public enum CustomizeALotOverheadChatPreset
 	}
 
 	private static Map<String, Object> ruinedHeirSettings()
+	{
+		Map<String, Object> values = new LinkedHashMap<>(previousRuinedHeirSettings());
+		values.put(CustomizeALotConfig.OVERHEAD_CHAT_SHADOW_COLOR_KEY,
+			new Color(0x80171717, true));
+		return Collections.unmodifiableMap(values);
+	}
+
+	static Map<String, Object> previousRuinedHeirSettings()
+	{
+		Map<String, Object> values = new LinkedHashMap<>(legacyRuinedHeirSettings());
+		values.put(CustomizeALotConfig.OVERHEAD_CHAT_RELATIONSHIP_COLORS_KEY, true);
+		values.put(CustomizeALotConfig.OVERHEAD_CHAT_FRIEND_COLOR_KEY,
+			new Color(0xFFA5FF40, true));
+		values.put(CustomizeALotConfig.OVERHEAD_CHAT_CLAN_COLOR_KEY,
+			new Color(0xFF40CFFF, true));
+		values.put(CustomizeALotConfig.OVERHEAD_CHAT_GROUP_IRON_COLOR_KEY,
+			new Color(0xFFFF4040, true));
+		return Collections.unmodifiableMap(values);
+	}
+
+	static Map<String, Object> legacyRuinedHeirSettings()
 	{
 		Map<String, Object> values = new LinkedHashMap<>(runeScapeSettings());
 		values.put(CustomizeALotConfig.OVERHEAD_CHAT_COLOR_KEY,

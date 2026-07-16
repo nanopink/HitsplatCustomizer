@@ -20,6 +20,8 @@ import net.runelite.api.Client;
 import net.runelite.api.NPC;
 import net.runelite.api.Point;
 import net.runelite.api.Player;
+import net.runelite.api.clan.ClanID;
+import net.runelite.api.clan.ClanSettings;
 import net.runelite.client.config.FontType;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.overlay.Overlay;
@@ -108,6 +110,11 @@ public class CustomizeALotOverlay extends Overlay
 			overlayGraphics.setFont(scaleFont(hitsplatFont, hitsplatScalePercent));
 			CustomizeALotOverheadChatRenderer.Style chatStyle =
 				CustomizeALotOverheadChatRenderer.captureStyle(config);
+			ClanSettings groupIronSettings = chatStyle.shouldRender(false)
+				&& chatStyle.usesRelationshipColors()
+				? client.getClanSettings(ClanID.GROUP_IRONMAN)
+				: null;
+			Player localPlayer = client.getLocalPlayer();
 			overlayGraphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
 			overlayGraphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
 
@@ -137,10 +144,22 @@ public class CustomizeALotOverlay extends Overlay
 						messageState.getText(),
 						chatStyle.getFallbackEffect(),
 						gameCycle);
+					Color fallbackChatColor = chatStyle.getColor();
+					if (chatStyle.usesRelationshipColors()
+						&& messageState.getOverheadCycle() > 0
+						&& messageState.getText() != null
+						&& !messageState.getText().isEmpty())
+					{
+						fallbackChatColor = relationshipChatColor(
+							actor,
+							localPlayer,
+							groupIronSettings,
+							chatStyle);
+					}
 					Color chatColor = localChatEffectTracker.colorFor(
 						actor,
 						messageState.getText(),
-						chatStyle.getColor(),
+						fallbackChatColor,
 						gameCycle);
 					overheadChatRenderer.render(
 						overlayGraphics,
@@ -172,6 +191,29 @@ public class CustomizeALotOverlay extends Overlay
 		}
 
 		return null;
+	}
+
+	static Color relationshipChatColor(
+		Actor actor,
+		Player localPlayer,
+		ClanSettings groupIronSettings,
+		CustomizeALotOverheadChatRenderer.Style style)
+	{
+		if (!(actor instanceof Player) || actor == localPlayer)
+		{
+			return style == null ? Color.YELLOW : style.getColor();
+		}
+
+		Player player = (Player) actor;
+		String playerName = player.getName();
+		boolean groupIronMember = groupIronSettings != null
+			&& playerName != null
+			&& groupIronSettings.findMember(playerName) != null;
+		return CustomizeALotOverheadChatRenderer.relationshipColor(
+			style,
+			groupIronMember,
+			player.isFriend(),
+			player.isClanMember());
 	}
 
 	private static boolean hasRenderableState(Actor actor)

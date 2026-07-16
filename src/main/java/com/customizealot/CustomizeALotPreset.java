@@ -83,7 +83,7 @@ public enum CustomizeALotPreset
 		700,
 		300);
 
-	static final CustomizeALotPreset DEFAULT = RUNESCAPE;
+	static final CustomizeALotPreset DEFAULT = RUINED_HEIRS_ONE_TICK;
 
 	private final String name;
 	private final boolean onlyDisplayMine;

@@ -9,10 +9,9 @@ public enum CustomizeALotHealthBarPreset
 {
 	CUSTOM("Custom", runeScapeSettings()),
 	RUNESCAPE("RuneScape", runeScapeSettings()),
-	// Initial visual estimate; keep the user-facing name stable while values are tuned in game.
 	RUINED_HEIR("Ruined Heir", ruinedHeirSettings());
 
-	static final CustomizeALotHealthBarPreset DEFAULT = RUNESCAPE;
+	static final CustomizeALotHealthBarPreset DEFAULT = RUINED_HEIR;
 
 	private final String displayName;
 	private final Map<String, Object> settings;
@@ -37,6 +36,41 @@ public enum CustomizeALotHealthBarPreset
 	}
 
 	private static Map<String, Object> ruinedHeirSettings()
+	{
+		Map<String, Object> values = new LinkedHashMap<>(previousRuinedHeirSettings());
+		values.put(CustomizeALotConfig.HEALTH_BAR_SCALE_MODE_KEY,
+			CustomizeALotHealthScaleMode.THRESHOLD);
+		values.put(CustomizeALotConfig.HEALTH_BAR_LARGE_HEIGHT_SCALE_PERCENT_KEY, 100);
+		values.put(CustomizeALotConfig.HEALTH_BAR_HEIGHT_KEY, 5.0);
+		return Collections.unmodifiableMap(values);
+	}
+
+	static Map<String, Object> previousRuinedHeirSettings()
+	{
+		Map<String, Object> values = new LinkedHashMap<>(legacyRuinedHeirSettings());
+		values.put(CustomizeALotConfig.HEALTH_BAR_SOLID_WIDTH_KEY, 50.0);
+		values.put(CustomizeALotConfig.HEALTH_BAR_HEIGHT_KEY, 6.0);
+		values.put(CustomizeALotConfig.HEALTH_BAR_FRONT_COLOR_KEY,
+			new Color(0xFF34F434, true));
+		values.put(CustomizeALotConfig.HEALTH_BAR_FRONT_SECONDARY_COLOR_KEY,
+			new Color(0xFF18E418, true));
+		values.put(CustomizeALotConfig.HEALTH_BAR_BACK_COLOR_KEY,
+			new Color(0xFFC01D1D, true));
+		values.put(CustomizeALotConfig.HEALTH_BAR_BACK_SECONDARY_COLOR_KEY,
+			new Color(0xFF901818, true));
+		values.put(CustomizeALotConfig.HEALTH_BAR_DAMAGE_TRAIL_COLOR_KEY,
+			new Color(0xFFFF001F, true));
+		values.put(CustomizeALotConfig.HEALTH_BAR_DAMAGE_TRAIL_HOLD_KEY, 445);
+		values.put(CustomizeALotConfig.HEALTH_BAR_DAMAGE_TRAIL_DRAIN_KEY, 245);
+		values.put(CustomizeALotConfig.HEALTH_BAR_SEGMENT_COLOR_KEY,
+			new Color(0x3F000000, true));
+		values.put(CustomizeALotConfig.HEALTH_BAR_SEGMENT_THICKNESS_KEY, 0.6);
+		values.put(CustomizeALotConfig.HEALTH_BAR_BORDER_THICKNESS_KEY, 0.1);
+		values.put(CustomizeALotConfig.HEALTH_BAR_CORNER_RADIUS_KEY, 0.5);
+		return Collections.unmodifiableMap(values);
+	}
+
+	static Map<String, Object> legacyRuinedHeirSettings()
 	{
 		Map<String, Object> values = baseSettings();
 		values.put(CustomizeALotConfig.HEALTH_BAR_STYLE_KEY,
@@ -82,6 +116,7 @@ public enum CustomizeALotHealthBarPreset
 		values.put(CustomizeALotConfig.HEALTH_BAR_SCALE_PERCENT_KEY, 100);
 		values.put(CustomizeALotConfig.HEALTH_BAR_SCALE_THRESHOLD_KEY, 100);
 		values.put(CustomizeALotConfig.HEALTH_BAR_LARGE_SCALE_PERCENT_KEY, 150);
+		values.put(CustomizeALotConfig.HEALTH_BAR_LARGE_HEIGHT_SCALE_PERCENT_KEY, 100);
 		values.put(CustomizeALotConfig.HEALTH_BAR_SOLID_WIDTH_KEY, 30.0);
 		values.put(CustomizeALotConfig.HEALTH_BAR_HEIGHT_KEY, 5.0);
 		values.put(CustomizeALotConfig.HEALTH_BAR_X_OFFSET_KEY, 0);
